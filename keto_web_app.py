@@ -21,7 +21,7 @@ def load_data(filename, columns):
             return pd.DataFrame(columns=columns)
     return pd.DataFrame(columns=columns)
 
-# Formatting helper for European Dates
+# Formatting helper for European Dates (DD.MM.YYYY)
 def format_euro_date(date_str):
     try:
         return pd.to_datetime(date_str).strftime('%d.%m.%Y')
@@ -62,7 +62,7 @@ with tab1:
             if st.session_state.start_time:
                 end_time = datetime.datetime.now()
                 duration = (end_time - st.session_state.start_time).total_seconds() / 3600
-                date_str = end_time.strftime('%Y-%m-%d') # Saved as ISO for sorting
+                date_str = end_time.strftime('%Y-%m-%d')
                 new_fast = pd.DataFrame({"Date": [date_str], "Hours": [round(duration, 2)]})
                 save_data(pd.concat([load_data(FAST_FILE, ["Date", "Hours"]), new_fast]), FAST_FILE)
                 st.session_state.start_time = None
@@ -72,19 +72,22 @@ with tab1:
     if st.session_state.start_time:
         elapsed = (datetime.datetime.now() - st.session_state.start_time).total_seconds() / 3600
         
-        # Fasting Stages Logic
-        st.subheader(f"Current Status: {'🔥 Ketosis Stage' if elapsed > 12 else '⌛ Blood Sugar Dropping'}")
+        status = "⌛ Blood Sugar Dropping"
+        if 12 <= elapsed < 16:
+            status = "🔥 Ketosis Stage"
+        elif elapsed >= 16:
+            status = "🧬 Autophagy Initiated"
+            
+        st.subheader(f"Status: {status}")
         st.metric("Time Fasted", f"{elapsed:.2f} hrs")
         
         target = 16.0
-        progress = min(elapsed / target, 1.0)
-        st.progress(progress)
+        st.progress(min(elapsed / target, 1.0))
         
         if elapsed < target:
-            st.write(f"Remaining: **{(target - elapsed):.2f} hours** until the 16h mark.")
+            st.write(f"Finish in: **{(target - elapsed):.2f} hours**")
         else:
-            st.balloons()
-            st.success("Target Reached! Autophagy and fat burning are now optimized.")
+            st.success("Target Reached!")
 
     
 
@@ -108,4 +111,39 @@ with tab2:
 # --- TAB 3: SUPPLEMENTS ---
 with tab3:
     st.header("Keto Supplement Stack")
-    st.info("Take electrolytes during your fast and fat-soluble vitamins (D, K,
+    st.info("Tip: Take electrolytes during your fast and fat-soluble vitamins (D, K, Omega-3) with your first meal.")
+    st.checkbox("Magnesium (Evening - 400mg)")
+    st.checkbox("Potassium (With Meal - 1000mg)")
+    st.checkbox("Sea Salt (During Fast - 2g)")
+
+# --- TAB 4: PROGRESS & EXPORT ---
+with tab4:
+    st.header("Weight Progress (kg)")
+    w_val = st.number_input("Log Weight Today", min_value=30.0, step=0.1)
+    if st.button("Save Weight"):
+        new_w = pd.DataFrame({"Date": [datetime.date.today().strftime('%Y-%m-%d')], "Weight_kg": [w_val]})
+        save_data(pd.concat([load_data(WEIGHT_FILE, ["Date", "Weight_kg"]), new_w]), WEIGHT_FILE)
+    
+    w_df = load_data(WEIGHT_FILE, ["Date", "Weight_kg"])
+    if not w_df.empty:
+        w_df_chart = w_df.copy()
+        w_df_chart['Date'] = pd.to_datetime(w_df_chart['Date'])
+        st.line_chart(w_df_chart.set_index("Date"))
+
+    st.divider()
+    st.header("📂 Export Center")
+    st.write("Download your data in European format (DD.MM.YYYY):")
+    
+    c_a, c_b = st.columns(2)
+    
+    if not f_df.empty:
+        f_exp = f_df.copy()
+        f_exp['Date'] = f_exp['Date'].apply(format_euro_date)
+        f_csv = f_exp.to_csv(index=False).encode('utf-8')
+        c_a.download_button("📥 Fasting History (CSV)", f_csv, "fasting.csv", "text/csv")
+    
+    if not w_df.empty:
+        w_exp = w_df.copy()
+        w_exp['Date'] = w_exp['Date'].apply(format_euro_date)
+        w_csv = w_exp.to_csv(index=False).encode('utf-8')
+        c_b.download_button("📥 Weight History (CSV)", w_csv, "weight.csv", "text/csv")
