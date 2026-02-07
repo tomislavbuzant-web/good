@@ -1,89 +1,90 @@
 import streamlit as st
 import datetime
-import pandas as pd
-import os
 
-# --- APP CONFIG ---
-st.set_page_config(page_title="Keto & Fasting Companion", layout="centered")
+# --- SETTINGS ---
+st.set_page_config(page_title="My Keto Pro", page_icon="🥑")
 
-# Helper to save/load data in a simple way
-DATA_FILE = "keto_data.csv"
+# Custom Styling for a cleaner look
+st.markdown("""
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stButton>button { width: 100%; border-radius: 20px; height: 3em; background-color: #2e7d32; color: white; }
+    </style>
+    """, unsafe_allow_input=True)
 
-def load_data():
-    if os.path.exists(DATA_FILE):
-        return pd.read_csv(DATA_FILE)
-    return pd.DataFrame(columns=["Date", "Weight_kg"])
+st.title("🥑 My Keto Pro Dashboard")
 
-# --- UI HEADER ---
-st.title("🥑 Keto & Fasting Dashboard")
-st.write(f"Today's Date: {datetime.date.today().strftime('%d %B %Y')}")
-
-# --- SECTION 1: 16/8 FASTING ---
-st.header("🕒 16/8 Intermittent Fasting")
-if 'fast_start' not in st.session_state:
-    st.session_state.fast_start = None
-
+# --- 1. INTERMITTENT FASTING (16/8) ---
+st.header("🕒 Fasting Tracker")
 col1, col2 = st.columns(2)
 
+if 'start_time' not in st.session_state:
+    st.session_state.start_time = None
+
 with col1:
-    if st.button("🚀 Start Fasting Now"):
-        st.session_state.fast_start = datetime.datetime.now()
-
+    if st.button("🏁 Start 16h Fast"):
+        st.session_state.start_time = datetime.datetime.now()
 with col2:
-    if st.button("🍽️ End Fasting"):
-        st.session_state.fast_start = None
+    if st.button("🍽️ End Fast"):
+        st.session_state.start_time = None
 
-if st.session_state.fast_start:
-    elapsed = datetime.datetime.now() - st.session_state.fast_start
-    hours = elapsed.total_seconds() / 3600
-    st.info(f"Fasting for: **{hours:.1f} hours**")
+if st.session_state.start_time:
+    now = datetime.datetime.now()
+    elapsed = now - st.session_state.start_time
+    hours_passed = elapsed.total_seconds() / 3600
+    remaining = max(0, 16 - hours_passed)
     
-    # Progress Bar
-    progress = min(hours / 16.0, 1.0)
-    st.progress(progress)
-    if hours >= 16:
-        st.success("Target reached! You can now eat.")
+    st.metric("Hours Fasted", f"{hours_passed:.1f}h")
+    
+    if hours_passed < 16:
+        st.write(f"Keep going! You have **{remaining:.1f} hours** left.")
+        st.progress(hours_passed / 16)
+    else:
+        st.success("✅ 16-hour window complete! You can now eat.")
 else:
-    st.warning("Not currently fasting.")
+    st.info("Log your last meal to start the timer.")
 
-# --- SECTION 2: WEIGHT TRACKER ---
-st.header("⚖️ Weight Tracker (Metric)")
-weight = st.number_input("Enter Weight (kg):", min_value=30.0, max_value=250.0, step=0.1)
-if st.button("Log Weight"):
-    new_data = pd.DataFrame({"Date": [datetime.date.today()], "Weight_kg": [weight]})
-    df = load_data()
-    df = pd.concat([df, new_data], ignore_index=True)
-    df.to_csv(DATA_FILE, index=False)
-    st.success(f"Saved: {weight} kg")
+# --- 2. DETAILED SUPPLEMENT PLAN ---
+st.header("💊 My Supplement Stack")
+st.write("Metric doses for your Keto regimen:")
 
-# Display Weight Chart
-df = load_data()
-if not df.empty:
-    st.line_chart(df.set_index("Date"))
+# Using columns for a checklist
+c1, c2 = st.columns(2)
+with c1:
+    st.checkbox("Magnesium (400mg) - Evening")
+    st.checkbox("Potassium (1000mg) - With food")
+    st.checkbox("Omega-3 (2g) - Morning")
+with c2:
+    st.checkbox("Vitamin D3 (5000 IU)")
+    st.checkbox("MCT Oil (15ml) - In Coffee")
+    st.checkbox("Electrolyte Powder - In 1L Water")
 
-# --- SECTION 3: SUPPLEMENT CHECKLIST ---
-st.header("💊 Daily Supplements")
-supps = ["Magnesium", "Potassium", "Omega-3", "Vitamin D3", "MCT Oil"]
-for s in supps:
-    st.checkbox(s)
+# --- 3. SMART KITCHEN (Fridge Search) ---
+st.header("🍳 What's in the Fridge?")
+user_ingredients = st.text_input("Type ingredients you have (e.g. eggs, spinach, steak)").lower()
 
-# --- SECTION 4: KITCHEN RECIPE FINDER ---
-st.header("🍳 Fridge Recipe Finder")
-fridge = st.text_input("What is in your fridge? (e.g., eggs, bacon, avocado)").lower()
+# Detailed Recipe Database
+recipes = [
+    {"name": "Keto Steak & Greens", "items": ["steak", "spinach", "butter"], "steps": "Sear steak in butter. Sauté spinach in the leftover fat."},
+    {"name": "Creamy Avocado Eggs", "items": ["eggs", "avocado", "cheese"], "steps": "Scramble eggs with cheese. Serve inside a halved avocado."},
+    {"name": "Salmon Bake", "items": ["salmon", "broccoli", "olive oil"], "steps": "Bake salmon and broccoli at 200°C for 15 mins with olive oil."},
+    {"name": "Keto Coffee", "items": ["coffee", "mct oil", "butter"], "steps": "Blend all ingredients until frothy. Great for fasting mornings!"}
+]
 
-recipes = {
-    "Keto Omelette": ["eggs", "cheese", "butter"],
-    "Bacon & Eggs": ["bacon", "eggs"],
-    "Avocado Bowl": ["avocado", "tuna", "mayo"],
-    "Steak": ["beef", "butter"]
-}
+if user_ingredients:
+    found_any = False
+    for r in recipes:
+        # Check if any user ingredient matches any recipe ingredient
+        if any(ing in user_ingredients for ing in r['items']):
+            with st.expander(f"📖 Suggestion: {r['name']}"):
+                st.write(f"**Requires:** {', '.join(r['items'])}")
+                st.write(f"**Instructions:** {r['steps']}")
+            found_any = True
+    if not found_any:
+        st.write("No specific recipe match. Stick to: 1 Protein + 1 Green + 1 Healthy Fat!")
 
-if fridge:
-    found = False
-    for name, ingredients in recipes.items():
-        if any(item in fridge for item in ingredients):
-            st.write(f"✅ **You can make: {name}**")
-            st.caption(f"Requires: {', '.join(ingredients)}")
-            found = True
-    if not found:
-        st.write("No exact match, but try a protein + healthy fat!")
+# --- 4. WEIGHT TRACKER (METRIC) ---
+st.header("⚖️ Progress")
+weight_kg = st.number_input("Current Weight (kg)", min_value=40.0, max_value=200.0, step=0.1)
+if st.button("Log Daily Weight"):
+    st.toast(f"Logged {weight_kg} kg! (Note: Data resets on refresh without a database)")
