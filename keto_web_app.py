@@ -6,6 +6,7 @@ import os
 # --- 1. CONFIG & DATA ---
 st.set_page_config(page_title="Keto Intelligence Pro", page_icon="🥑", layout="wide")
 
+# Data files
 FAST_FILE = "fasting_history.csv"
 WEIGHT_FILE = "weight_history.csv"
 
@@ -14,52 +15,31 @@ def save_data(df, filename):
 
 def load_data(filename, columns):
     if os.path.exists(filename):
-        return pd.read_csv(filename)
+        try:
+            return pd.read_csv(filename)
+        except:
+            return pd.DataFrame(columns=columns)
     return pd.DataFrame(columns=columns)
 
-# --- 2. LIBRARIES (Data Bases) ---
+# --- 2. EXTENSIVE LIBRARIES ---
+
+# Food Database with Macros (per 100g or unit)
 KETO_FOODS = {
     "Avocado": {"Fat": 15, "NetCarb": 2, "Protein": 2, "Unit": "100g"},
-    "Chicken Thigh": {"Fat": 9, "NetCarb": 0, "Protein": 24, "Unit": "100g"},
+    "Chicken Thigh (Skin on)": {"Fat": 15, "NetCarb": 0, "Protein": 20, "Unit": "100g"},
     "Spinach": {"Fat": 0, "NetCarb": 1, "Protein": 3, "Unit": "100g"},
     "Ribeye Steak": {"Fat": 22, "NetCarb": 0, "Protein": 24, "Unit": "100g"},
-    "Salmon": {"Fat": 13, "NetCarb": 0, "Protein": 20, "Unit": "100g"},
+    "Salmon (Fatty)": {"Fat": 13, "NetCarb": 0, "Protein": 20, "Unit": "100g"},
     "Eggs": {"Fat": 5, "NetCarb": 0.6, "Protein": 6, "Unit": "1 Large"},
-    "Butter": {"Fat": 12, "NetCarb": 0, "Protein": 0, "Unit": "1 tbsp"},
+    "Butter (Grass-fed)": {"Fat": 12, "NetCarb": 0, "Protein": 0, "Unit": "1 tbsp"},
     "MCT Oil": {"Fat": 14, "NetCarb": 0, "Protein": 0, "Unit": "1 tbsp"},
+    "Bacon": {"Fat": 42, "NetCarb": 1.4, "Protein": 37, "Unit": "100g"},
+    "Pecans": {"Fat": 72, "NetCarb": 4, "Protein": 9, "Unit": "100g"},
+    "Zucchini": {"Fat": 0.3, "NetCarb": 2.1, "Protein": 1.2, "Unit": "100g"},
+    "Heavy Cream": {"Fat": 5, "NetCarb": 0.4, "Protein": 0.4, "Unit": "1 tbsp"},
+    "Parmesan Cheese": {"Fat": 28, "NetCarb": 4, "Protein": 38, "Unit": "100g"}
 }
 
+# Supplement Database with Keto/Fasting Logic
 SUPPLEMENT_DB = {
-    "Magnesium Citrate": {"dose": "400mg", "timing": "Before Bed", "benefit": "Sleep & Muscle Cramps"},
-    "Potassium Chloride": {"dose": "1000mg", "timing": "With Meal", "benefit": "Keto Flu Prevention"},
-    "Omega-3 Fish Oil": {"dose": "2000mg", "timing": "With Fat Meal", "benefit": "Heart & Inflammation"},
-    "Vitamin D3": {"dose": "5000 IU", "timing": "Morning", "benefit": "Immune & Mood"},
-    "Electrolyte Powder": {"dose": "1 scoop", "timing": "During Fasting", "benefit": "Energy & Hydration"},
-    "Creatine": {"dose": "5g", "timing": "Anytime", "benefit": "Muscle Retention"},
-}
-
-RECIPES_DB = [
-    {
-        "name": "Crispy Salmon & Asparagus",
-        "fridge": ["Salmon", "Butter"],
-        "buy": ["Asparagus", "Lemon"],
-        "instructions": "Sear salmon in butter for 4 mins skin-side down. Sauté asparagus in the same pan.",
-        "links": ["https://www.dietdoctor.com/recipes/baked-salmon-with-asparagus", "https://youtu.be/salmon-video-1"]
-    },
-    {
-        "name": "Keto Ribeye Feast",
-        "fridge": ["Ribeye Steak", "Butter"],
-        "buy": ["Garlic", "Rosemary", "Broccoli"],
-        "instructions": "High heat sear for 3 mins per side. Baste with garlic butter.",
-        "links": ["https://www.delish.com/cooking/recipe/steak-keto", "https://youtu.be/steak-video-1"]
-    }
-]
-
-# --- 3. FASTING HISTORY LOGIC ---
-st.title("🥑 Keto Intelligence Pro")
-
-tab1, tab2, tab3, tab4 = st.tabs(["🕒 Fasting & History", "🥗 Food & Recipes", "💊 Supplements", "📈 Weight"])
-
-with tab1:
-    st.header("16/8 Intermittent Fasting")
-    if 'start_time' not in st.session_state
+    "Magnesium Glycinate": {"dose": "400mg", "timing":
