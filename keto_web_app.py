@@ -7,63 +7,58 @@ import io
 # --- 1. CONFIG & DATA ---
 st.set_page_config(page_title="Keto Intelligence Pro", page_icon="🥑", layout="wide")
 
+# Persistent Data Files
 FAST_FILE = "fasting_history.csv"
 WEIGHT_FILE = "weight_history.csv"
 
 def save_data(df, filename):
     df.to_csv(filename, index=False)
 
-def load_data(filename, columns):
+def load_data(filename, columns, initial_val=None):
     if os.path.exists(filename):
         try:
             return pd.read_csv(filename)
         except:
             return pd.DataFrame(columns=columns)
+    if initial_val:
+        return pd.DataFrame(initial_val)
     return pd.DataFrame(columns=columns)
 
-# Formatting helper for European Dates (DD.MM.YYYY)
 def format_euro_date(date_str):
     try:
         return pd.to_datetime(date_str).strftime('%d.%m.%Y')
     except:
         return date_str
 
-# --- 2. LIBRARIES ---
-KETO_FOODS = {
-    "Avocado": {"Fat": 15, "NetCarb": 2, "Protein": 2},
-    "Chicken Thigh": {"Fat": 15, "NetCarb": 0, "Protein": 20},
-    "Spinach": {"Fat": 0, "NetCarb": 1, "Protein": 3},
-    "Ribeye Steak": {"Fat": 22, "NetCarb": 0, "Protein": 24},
-    "Salmon": {"Fat": 13, "NetCarb": 0, "Protein": 20},
-    "Eggs": {"Fat": 5, "NetCarb": 0.6, "Protein": 6},
-    "Butter": {"Fat": 12, "NetCarb": 0, "Protein": 0},
-    "Bacon": {"Fat": 42, "NetCarb": 1.4, "Protein": 37}
-}
+# --- 2. APP INTERFACE ---
+st.sidebar.title("👤 User Profile")
+profile_pic = st.sidebar.file_uploader("Upload Profile Picture", type=['jpg', 'png'])
+if profile_pic:
+    st.sidebar.image(profile_pic, width=100)
 
-# --- 3. APP INTERFACE ---
-st.title("🥑 Keto Intelligence Pro")
+user_name = st.sidebar.text_input("Name", "User")
+meas_system = st.sidebar.radio("Measurement System", ["Metric (kg/cm)", "Imperial (lbs/ft)"])
 
-tab1, tab2, tab3, tab4 = st.tabs(["🕒 Fasting Tracker", "🥗 Food & Recipes", "💊 Supplements", "📈 Progress & Export"])
+tab_fast, tab_macros, tab_food, tab_supps, tab_profile = st.tabs([
+    "🕒 Fasting", "🧮 Macro Calc", "🥗 Food & Recipes", "💊 Supplements", "👤 Profile & Export"
+])
 
-# --- TAB 1: IMPROVED FASTING ---
-with tab1:
-    st.header("16/8 Intermittent Fasting")
-    
+# --- TAB 1: FASTING ---
+with tab_fast:
+    st.header("Intermittent Fasting Tracker")
     if 'start_time' not in st.session_state:
         st.session_state.start_time = None
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🚀 Start Fasting Clock"):
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("🚀 Start Fast"):
             st.session_state.start_time = datetime.datetime.now()
             st.rerun()
-    with col2:
-        if st.button("🍽️ Finish & Log Fast"):
+    with c2:
+        if st.button("🍽️ End Fast"):
             if st.session_state.start_time:
-                end_time = datetime.datetime.now()
-                duration = (end_time - st.session_state.start_time).total_seconds() / 3600
-                date_str = end_time.strftime('%Y-%m-%d')
-                new_fast = pd.DataFrame({"Date": [date_str], "Hours": [round(duration, 2)]})
+                duration = (datetime.datetime.now() - st.session_state.start_time).total_seconds() / 3600
+                new_fast = pd.DataFrame({"Date": [datetime.date.today().strftime('%Y-%m-%d')], "Hours": [round(duration, 2)]})
                 save_data(pd.concat([load_data(FAST_FILE, ["Date", "Hours"]), new_fast]), FAST_FILE)
                 st.session_state.start_time = None
                 st.success(f"Logged {duration:.1f} hours!")
@@ -71,79 +66,74 @@ with tab1:
 
     if st.session_state.start_time:
         elapsed = (datetime.datetime.now() - st.session_state.start_time).total_seconds() / 3600
+        st.metric("Elapsed Time", f"{elapsed:.2f} hrs")
         
-        status = "⌛ Blood Sugar Dropping"
-        if 12 <= elapsed < 16:
-            status = "🔥 Ketosis Stage"
-        elif elapsed >= 16:
-            status = "🧬 Autophagy Initiated"
-            
-        st.subheader(f"Status: {status}")
-        st.metric("Time Fasted", f"{elapsed:.2f} hrs")
-        
-        target = 16.0
-        st.progress(min(elapsed / target, 1.0))
-        
-        if elapsed < target:
-            st.write(f"Finish in: **{(target - elapsed):.2f} hours**")
-        else:
-            st.success("Target Reached!")
+        # Metabolic Stages
+        if elapsed < 12: stage, color = "Glucose Burning", "blue"
+        elif elapsed < 16: stage, color = "Transition to Ketosis", "orange"
+        else: stage, color = "Autophagy & Fat Burning", "green"
+        st.info(f"**Current Metabolic State:** {stage}")
+        st.progress(min(elapsed/16, 1.0))
 
     
 
+# --- TAB 2: MACRO CALCULATOR ---
+with tab_macros:
+    st.header("Keto Macro Calculator")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        age = st.number_input("Age", 18, 100, 30)
+        gender = st.selectbox("Gender", ["Male", "Female"])
+        weight = st.number_input(f"Weight ({'kg' if meas_system.startswith('Metric') else 'lbs'})", 40.0, 200.0, 90.0)
+    with col_b:
+        height = st.number_input(f"Height ({'cm' if meas_system.startswith('Metric') else 'in'})", 100, 250, 175)
+        activity = st.selectbox("Activity Level", ["Sedentary", "Lightly Active", "Moderately Active", "Very Active"])
+
+    if st.button("Calculate My Keto Macros"):
+        # Basic BMR calculation (Mifflin-St Jeor)
+        w_kg = weight if meas_system.startswith('Metric') else weight * 0.453592
+        h_cm = height if meas_system.startswith('Metric') else height * 2.54
+        bmr = (10 * w_kg) + (6.25 * h_cm) - (5 * age) + (5 if gender == "Male" else -161)
+        
+        # TDEE Multiplier
+        mult = {"Sedentary": 1.2, "Lightly Active": 1.375, "Moderately Active": 1.55, "Very Active": 1.725}
+        tdee = bmr * mult[activity]
+        
+        # Keto Ratios: 5% Carb, 25% Protein, 70% Fat
+        st.success(f"Estimated Daily Calories: {int(tdee)} kcal")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Net Carbs", f"{int((tdee * 0.05) / 4)}g")
+        c2.metric("Protein", f"{int((tdee * 0.25) / 4)}g")
+        c3.metric("Fat", f"{int((tdee * 0.70) / 9)}g")
+
+# --- TAB 5: PROFILE & EXPORT ---
+with tab_profile:
+    st.header(f"Profile: {user_name}")
+    
+    # Weight Entry
+    curr_w = st.number_input("Update Weight (kg)", 30.0, 300.0, 90.0)
+    if st.button("Log Weight Entry"):
+        w_df = load_data(WEIGHT_FILE, ["Date", "Weight_kg"], initial_val={"Date": ["2026-02-01"], "Weight_kg": [90.0]})
+        new_w = pd.DataFrame({"Date": [datetime.date.today().strftime('%Y-%m-%d')], "Weight_kg": [curr_w]})
+        save_data(pd.concat([w_df, new_w]), WEIGHT_FILE)
+    
+    # Combined History Table
+    st.subheader("Weight Loss & Fasting History")
+    w_history = load_data(WEIGHT_FILE, ["Date", "Weight_kg"])
+    if not w_history.empty:
+        w_history['Date'] = w_history['Date'].apply(format_euro_date)
+        st.table(w_history.tail(5))
+        
+    # EXPORT SECTION
     st.divider()
-    st.subheader("📜 Fasting History")
+    st.subheader("📂 Export Data")
+    
     f_df = load_data(FAST_FILE, ["Date", "Hours"])
-    if not f_df.empty:
-        f_df_display = f_df.copy()
-        f_df_display['Date'] = f_df_display['Date'].apply(format_euro_date)
-        st.table(f_df_display.tail(7))
-
-# --- TAB 2: FOOD & RECIPES ---
-with tab2:
-    st.header("Keto Food Library")
-    search_food = st.multiselect("In your fridge:", list(KETO_FOODS.keys()))
-    if search_food:
-        for f in search_food:
-            m = KETO_FOODS[f]
-            st.caption(f"**{f}**: {m['Fat']}g Fat | {m['NetCarb']}g Carbs | {m['Protein']}g Protein")
-
-# --- TAB 3: SUPPLEMENTS ---
-with tab3:
-    st.header("Keto Supplement Stack")
-    st.info("Tip: Take electrolytes during your fast and fat-soluble vitamins (D, K, Omega-3) with your first meal.")
-    st.checkbox("Magnesium (Evening - 400mg)")
-    st.checkbox("Potassium (With Meal - 1000mg)")
-    st.checkbox("Sea Salt (During Fast - 2g)")
-
-# --- TAB 4: PROGRESS & EXPORT ---
-with tab4:
-    st.header("Weight Progress (kg)")
-    w_val = st.number_input("Log Weight Today", min_value=30.0, step=0.1)
-    if st.button("Save Weight"):
-        new_w = pd.DataFrame({"Date": [datetime.date.today().strftime('%Y-%m-%d')], "Weight_kg": [w_val]})
-        save_data(pd.concat([load_data(WEIGHT_FILE, ["Date", "Weight_kg"]), new_w]), WEIGHT_FILE)
-    
-    w_df = load_data(WEIGHT_FILE, ["Date", "Weight_kg"])
-    if not w_df.empty:
-        w_df_chart = w_df.copy()
-        w_df_chart['Date'] = pd.to_datetime(w_df_chart['Date'])
-        st.line_chart(w_df_chart.set_index("Date"))
-
-    st.divider()
-    st.header("📂 Export Center")
-    st.write("Download your data in European format (DD.MM.YYYY):")
-    
-    c_a, c_b = st.columns(2)
-    
     if not f_df.empty:
         f_exp = f_df.copy()
         f_exp['Date'] = f_exp['Date'].apply(format_euro_date)
-        f_csv = f_exp.to_csv(index=False).encode('utf-8')
-        c_a.download_button("📥 Fasting History (CSV)", f_csv, "fasting.csv", "text/csv")
+        st.download_button("📥 Export Fasting (CSV)", f_exp.to_csv(index=False), "fasting_history.csv", "text/csv")
+        st.download_button("📥 Export Fasting (TXT)", f_exp.to_string(index=False), "fasting_history.txt", "text/plain")
     
-    if not w_df.empty:
-        w_exp = w_df.copy()
-        w_exp['Date'] = w_exp['Date'].apply(format_euro_date)
-        w_csv = w_exp.to_csv(index=False).encode('utf-8')
-        c_b.download_button("📥 Weight History (CSV)", w_csv, "weight.csv", "text/csv")
+    if not w_history.empty:
+        st.download_button("📥 Export Weight (CSV)", w_history.to_csv(index=False), "weight_history.csv", "text/csv")
