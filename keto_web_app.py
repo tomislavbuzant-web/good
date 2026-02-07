@@ -3,109 +3,63 @@ import datetime
 import pandas as pd
 import os
 
-# --- 1. PAGE CONFIGURATION ---
-# Simple configuration without custom CSS to avoid Python 3.13 errors
-st.set_page_config(page_title="Keto Pro", page_icon="🥑")
+# --- 1. CONFIG & DATA ---
+st.set_page_config(page_title="Keto Intelligence Pro", page_icon="🥑", layout="wide")
 
-# Data storage file
-DATA_FILE = "weight_history.csv"
+FAST_FILE = "fasting_history.csv"
+WEIGHT_FILE = "weight_history.csv"
 
-def load_weight_data():
-    if os.path.exists(DATA_FILE):
-        try:
-            return pd.read_csv(DATA_FILE)
-        except:
-            return pd.DataFrame(columns=["Date", "Weight_kg"])
-    return pd.DataFrame(columns=["Date", "Weight_kg"])
+def save_data(df, filename):
+    df.to_csv(filename, index=False)
 
-# --- 2. FASTING LOGIC (16/8) ---
-st.title("🥑 Keto Pro Dashboard")
+def load_data(filename, columns):
+    if os.path.exists(filename):
+        return pd.read_csv(filename)
+    return pd.DataFrame(columns=columns)
 
-if 'start_time' not in st.session_state:
-    st.session_state.start_time = None
+# --- 2. LIBRARIES (Data Bases) ---
+KETO_FOODS = {
+    "Avocado": {"Fat": 15, "NetCarb": 2, "Protein": 2, "Unit": "100g"},
+    "Chicken Thigh": {"Fat": 9, "NetCarb": 0, "Protein": 24, "Unit": "100g"},
+    "Spinach": {"Fat": 0, "NetCarb": 1, "Protein": 3, "Unit": "100g"},
+    "Ribeye Steak": {"Fat": 22, "NetCarb": 0, "Protein": 24, "Unit": "100g"},
+    "Salmon": {"Fat": 13, "NetCarb": 0, "Protein": 20, "Unit": "100g"},
+    "Eggs": {"Fat": 5, "NetCarb": 0.6, "Protein": 6, "Unit": "1 Large"},
+    "Butter": {"Fat": 12, "NetCarb": 0, "Protein": 0, "Unit": "1 tbsp"},
+    "MCT Oil": {"Fat": 14, "NetCarb": 0, "Protein": 0, "Unit": "1 tbsp"},
+}
 
-st.header("🕒 16/8 Fasting Timer")
-c1, c2 = st.columns(2)
+SUPPLEMENT_DB = {
+    "Magnesium Citrate": {"dose": "400mg", "timing": "Before Bed", "benefit": "Sleep & Muscle Cramps"},
+    "Potassium Chloride": {"dose": "1000mg", "timing": "With Meal", "benefit": "Keto Flu Prevention"},
+    "Omega-3 Fish Oil": {"dose": "2000mg", "timing": "With Fat Meal", "benefit": "Heart & Inflammation"},
+    "Vitamin D3": {"dose": "5000 IU", "timing": "Morning", "benefit": "Immune & Mood"},
+    "Electrolyte Powder": {"dose": "1 scoop", "timing": "During Fasting", "benefit": "Energy & Hydration"},
+    "Creatine": {"dose": "5g", "timing": "Anytime", "benefit": "Muscle Retention"},
+}
 
-with c1:
-    if st.button("🚀 Start Fast"):
-        st.session_state.start_time = datetime.datetime.now()
-with c2:
-    if st.button("🍽️ End Fast"):
-        st.session_state.start_time = None
-
-if st.session_state.start_time:
-    now = datetime.datetime.now()
-    elapsed = now - st.session_state.start_time
-    hours_passed = elapsed.total_seconds() / 3600
-    st.metric("Hours Elapsed", f"{hours_passed:.1f}h")
-    
-    progress_val = min(hours_passed / 16.0, 1.0)
-    st.progress(progress_val)
-    
-    if hours_passed >= 16:
-        st.success("Target Reached! You can eat now.")
-    else:
-        remaining = 16 - hours_passed
-        st.write(f"Finish in: **{remaining:.1f} hours**")
-else:
-    st.info("Timer is off. Press Start after your last meal.")
-
-st.divider()
-
-# --- 3. SUPPLEMENTS CHECKLIST ---
-st.header("💊 Daily Supplements")
-# You can add or remove items from this list easily
-supps = [
-    "Magnesium (400mg) - Evening",
-    "Potassium (1000mg) - With meals",
-    "Omega-3 (2g) - With meals",
-    "Vitamin D3 (5000 IU) - Morning",
-    "MCT Oil (15ml) - In coffee/salad"
+RECIPES_DB = [
+    {
+        "name": "Crispy Salmon & Asparagus",
+        "fridge": ["Salmon", "Butter"],
+        "buy": ["Asparagus", "Lemon"],
+        "instructions": "Sear salmon in butter for 4 mins skin-side down. Sauté asparagus in the same pan.",
+        "links": ["https://www.dietdoctor.com/recipes/baked-salmon-with-asparagus", "https://youtu.be/salmon-video-1"]
+    },
+    {
+        "name": "Keto Ribeye Feast",
+        "fridge": ["Ribeye Steak", "Butter"],
+        "buy": ["Garlic", "Rosemary", "Broccoli"],
+        "instructions": "High heat sear for 3 mins per side. Baste with garlic butter.",
+        "links": ["https://www.delish.com/cooking/recipe/steak-keto", "https://youtu.be/steak-video-1"]
+    }
 ]
 
-for s in supps:
-    st.checkbox(s)
+# --- 3. FASTING HISTORY LOGIC ---
+st.title("🥑 Keto Intelligence Pro")
 
-st.divider()
+tab1, tab2, tab3, tab4 = st.tabs(["🕒 Fasting & History", "🥗 Food & Recipes", "💊 Supplements", "📈 Weight"])
 
-# --- 4. SMART KITCHEN & RECIPES ---
-st.header("🍳 Fridge Recipe Finder")
-inventory = st.text_input("What's in your fridge? (e.g., eggs, steak)").lower()
-
-recipes = [
-    {"name": "Keto Omelette", "items": ["eggs", "cheese", "butter"], "steps": "Fry 3 eggs in butter (approx 180°C), fold in cheese."},
-    {"name": "Steak & Greens", "items": ["steak", "spinach", "butter"], "steps": "Sear steak, sauté spinach in butter."},
-    {"name": "Avocado Salmon", "items": ["salmon", "avocado", "lemon"], "steps": "Bake salmon, serve with avocado."},
-    {"name": "Bulletproof Coffee", "items": ["coffee", "mct oil", "butter"], "steps": "Blend coffee with MCT and butter."}
-]
-
-if inventory:
-    found = False
-    for r in recipes:
-        if any(item in inventory for item in r['items']):
-            with st.expander(f"📖 {r['name']}"):
-                st.write(f"**Need:** {', '.join(r['items'])}")
-                st.write(f"**Instructions:** {r['steps']}")
-            found = True
-    if not found:
-        st.write("No direct match found.")
-
-st.divider()
-
-# --- 5. WEIGHT PROGRESS (METRIC) ---
-st.header("⚖️ Weight Tracker (kg)")
-current_w = st.number_input("Enter Weight (kg):", min_value=30.0, max_value=250.0, step=0.1)
-
-if st.button("Log Weight Today"):
-    today_str = datetime.date.today().strftime('%Y-%m-%d')
-    new_entry = pd.DataFrame({"Date": [today_str], "Weight_kg": [current_w]})
-    df = load_weight_data()
-    df = pd.concat([df, new_entry], ignore_index=True).drop_duplicates(subset=['Date'], keep='last')
-    df.to_csv(DATA_FILE, index=False)
-    st.success(f"Logged {current_w} kg")
-
-df_display = load_weight_data()
-if not df_display.empty:
-    df_display['Date'] = pd.to_datetime(df_display['Date'])
-    st.line_chart(df_display.set_index('Date'))
+with tab1:
+    st.header("16/8 Intermittent Fasting")
+    if 'start_time' not in st.session_state
