@@ -2,17 +2,15 @@ import streamlit as st
 import datetime
 import pandas as pd
 import os
+import random
 
-# --- 1. KONFIGURACIJA I PREMIUM VIZUALNI IDENTITET ---
+# --- 1. KONFIGURACIJA I DIZAJN ---
 st.set_page_config(page_title="Keto Intelligence Pro", page_icon="🥑", layout="wide")
 
 st.markdown("""
     <style>
     .main { background-color: #fcfcfc; font-family: 'Inter', sans-serif; }
     [data-testid="stMetricValue"] { color: #2e7d32; font-weight: 800; }
-    .stTabs [data-baseweb="tab-list"] { gap: 20px; }
-    .stTabs [data-baseweb="tab"] { height: 50px; font-weight: 500; }
-    .stTabs [aria-selected="true"] { color: #2e7d32 !important; border-bottom: 2px solid #2e7d32 !important; }
     .stat-card {
         background-color: #ffffff;
         padding: 20px;
@@ -20,6 +18,13 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.02);
         border: 1px solid #f0f0f0;
         margin-bottom: 20px;
+    }
+    .meal-box {
+        padding: 15px;
+        background-color: #f1f8e9;
+        border-left: 5px solid #2e7d32;
+        border-radius: 5px;
+        margin-bottom: 10px;
     }
     .stButton>button {
         border-radius: 8px;
@@ -33,153 +38,119 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. LOGIKA ZA POHRANU PODATAKA ---
-FILES = {
-    "weight": "weight_history.csv",
-    "fasting": "fasting_history.csv",
-    "food_log": "food_log.csv"
-}
+# --- 2. FUNKCIJE ---
+def save_data(df, filename):
+    df.to_csv(filename, index=False)
 
-def load_data(file, columns):
-    if os.path.exists(file):
-        return pd.read_csv(file)
+def load_data(filename, columns):
+    if os.path.exists(filename):
+        try: return pd.read_csv(filename)
+        except: return pd.DataFrame(columns=columns)
     return pd.DataFrame(columns=columns)
 
-# --- 3. EKSPERTNA KETO BAZA (Proširena) ---
-# Kao nutricionist dodao sam i mikronutrijente (Mg) te točne omjere
+FILES = {"weight": "weight_history.csv", "food_log": "food_log.csv"}
+
+# --- 3. PROŠIRENA BAZA I RECEPTI ---
 KETO_DB = {
-    "Jaja (1 kom - L)": {"p": 6, "f": 5, "c": 0.6, "kcal": 70, "mg": 5},
+    "Jaja (L veličina)": {"p": 6, "f": 5, "c": 0.6, "kcal": 70, "mg": 5},
     "Slanina (100g)": {"p": 37, "f": 42, "c": 1.4, "kcal": 540, "mg": 15},
     "Avokado (100g)": {"p": 2, "f": 15, "c": 2, "kcal": 160, "mg": 29},
     "Ribeye Steak (100g)": {"p": 24, "f": 22, "c": 0, "kcal": 290, "mg": 20},
     "Losos (100g)": {"p": 20, "f": 13, "c": 0, "kcal": 208, "mg": 27},
     "Maslac (15g)": {"p": 0.1, "f": 12, "c": 0, "kcal": 102, "mg": 0},
-    "Maslinovo ulje (1 žlica)": {"p": 0, "f": 14, "c": 0, "kcal": 119, "mg": 0},
     "Špinat (100g)": {"p": 2.9, "f": 0.4, "c": 1.4, "kcal": 23, "mg": 79},
-    "Piletina (Zabatak - 100g)": {"p": 25, "f": 12, "c": 0, "kcal": 209, "mg": 20},
-    "Pekan orasi (30g)": {"p": 3, "f": 20, "c": 1.2, "kcal": 196, "mg": 36},
-    "MCT Ulje (1 žlica)": {"p": 0, "f": 14, "c": 0, "kcal": 115, "mg": 0}
+    "Pekan orasi (30g)": {"p": 3, "f": 20, "c": 1.2, "kcal": 196, "mg": 36}
 }
 
-# --- 4. SIDEBAR (PROFIL I EKSPERTNI SAVJETI) ---
+MEAL_IDEAS = {
+    "Doručak": ["3 Jaja sa slaninom i avokadom", "Keto kava s maslacem i MCT uljem", "Omelet sa špinatom i feta sirom"],
+    "Ručak": ["Losos na žaru s pečenom brokulom", "Piletina s maslacem i cvjetačom", "Velika salata s tunom, jajima i maslinovim uljem"],
+    "Večera": ["Ribeye steak s bazičnim začinima", "Pečeni svinjski vrat i šparoge", "Keto tacosi u listovima salate"]
+}
+
+# --- 4. SIDEBAR ---
 with st.sidebar:
     st.title("💎 Keto Intelligence")
-    user_name = st.text_input("Ime i prezime", "Korisnik")
+    user_name = st.text_input("Ime", "Korisnik")
     st.divider()
-    st.info("Sustav: Metrički (kg/cm) | Celsius")
-    
-    st.subheader("💡 Nutricionistički savjet")
-    tips = [
-        "Povećaj unos soli ako osjetiš umor (Keto gripa).",
-        "MCT ulje u kavi ubrzava proizvodnju ketona.",
-        "Magnezij uzimaj navečer za bolji san i oporavak mišića.",
-        "GKI index ispod 3.0 znači duboku terapijsku ketozu."
-    ]
-    st.success(tips[datetime.datetime.now().day % len(tips)])
+    st.info("Mjerilo: Metrički | Celsius")
 
-# --- 5. GLAVNI TABOVI (SVE FUNKCIONALNOSTI) ---
-tab_dash, tab_macros, tab_fridge, tab_biomarkers, tab_data = st.tabs([
-    "📊 Pregled", "🧮 Macro Calculator", "🥗 Frižider & Log", "🧪 Biomarkeri", "👤 Profil & Export"
+# --- 5. GLAVNI TABOVI ---
+tab_dash, tab_macros, tab_meals, tab_biomarkers, tab_data = st.tabs([
+    "📊 Dashboard", "🧮 Kalkulator", "🥗 Hrana & Meal Plan", "🧪 Biomarkeri", "👤 Profil"
 ])
 
-# --- TAB 1: DASHBOARD ---
+# --- DASHBOARD ---
 with tab_dash:
-    st.subheader(f"Pozdrav, {user_name}! 👋")
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.markdown('<div class="stat-card">', unsafe_allow_html=True)
-        st.metric("Voda", "2.5 L", "💧")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown('<div class="stat-card">', unsafe_allow_html=True)
-        st.metric("Fasting status", "14:45 h", "🕒")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c3:
-        st.markdown('<div class="stat-card">', unsafe_allow_html=True)
-        st.metric("Dana u Ketozi", "12", "🔥")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c4:
-        st.markdown('<div class="stat-card">', unsafe_allow_html=True)
-        st.metric("Zadnji GKI", "2.1", "Optimalno")
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.subheader(f"Status za: {user_name}")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Voda", "2.5 L", "💧")
+    c2.metric("Vrijeme posta", "14:45 h", "🕒")
+    c3.metric("Ketoni", "1.5 mmol/L", "🔥")
 
-# --- TAB 2: MACRO CALCULATOR ---
+# --- MACRO CALCULATOR ---
 with tab_macros:
     st.subheader("Personalizirani Keto Izračun")
     col_m1, col_m2 = st.columns(2)
     with col_m1:
         age = st.number_input("Godine", 18, 100, 35)
-        weight_kg = st.number_input("Težina (kg)", 40.0, 200.0, 85.0)
+        weight_curr = st.number_input("Težina (kg)", 40.0, 200.0, 85.0, key="calc_w")
     with col_m2:
         height_cm = st.number_input("Visina (cm)", 100, 250, 180)
         activity = st.selectbox("Aktivnost", ["Sjedilački", "Lagana", "Umjerena", "Visoka"])
     
-    if st.button("Izračunaj moje makrose"):
-        bmr = (10 * weight_kg) + (6.25 * height_cm) - (5 * age) + 5
+    if st.button("Izračunaj makrose"):
+        bmr = (10 * weight_curr) + (6.25 * height_cm) - (5 * age) + 5
         tdee = bmr * {"Sjedilački": 1.2, "Lagana": 1.375, "Umjerena": 1.55, "Visoka": 1.725}[activity]
-        
-        st.session_state.p_goal = (tdee * 0.25) / 4
-        st.session_state.f_goal = (tdee * 0.70) / 9
-        st.session_state.c_goal = 20 # Standardni keto limit
-        
-        st.markdown(f"**Tvoj dnevni cilj: {int(tdee)} kcal**")
-        mc1, mc2, mc3 = st.columns(3)
-        mc1.metric("Proteini", f"{int(st.session_state.p_goal)}g")
-        mc2.metric("Masti", f"{int(st.session_state.f_goal)}g")
-        mc3.metric("Neto UH", "20g")
+        st.session_state.p_goal = int((tdee * 0.25) / 4)
+        st.session_state.f_goal = int((tdee * 0.70) / 9)
+        st.session_state.kcal_goal = int(tdee)
+        st.success(f"Dnevni cilj: {st.session_state.kcal_goal} kcal")
 
-# --- TAB 3: FRIŽIDER & FOOD LOG ---
-with tab_fridge:
-    st.subheader("Pametni Frižider & Dnevnik Hrane")
+# --- MEAL PLANNER & HRANA ---
+with tab_meals:
+    st.subheader("📋 Dnevni Meal Planer")
     
-    # Pretraživanje baze
-    selected_items = st.multiselect("Što imaš u frižideru / Što si jeo?", list(KETO_DB.keys()))
-    
-    if selected_items:
-        total_mg = sum([KETO_DB[i]['mg'] for i in selected_items])
-        st.info(f"Ovaj odabir sadrži **{total_mg}mg** magnezija. (Dnevna potreba: ~400mg)")
+    if 'kcal_goal' not in st.session_state:
+        st.warning("Prvo izračunaj makrose u tabu 'Kalkulator'!")
+    else:
+        st.markdown(f"**Cilj: {st.session_state.kcal_goal} kcal | P: {st.session_state.p_goal}g | F: {st.session_state.f_goal}g | C: 20g**")
         
-        if st.button("Spremi u dnevni log"):
-            st.toast("Obrok zabilježen!")
-            
+        if st.button("🔄 Generiraj novi plan obroka"):
+            st.session_state.daily_plan = {
+                "Doručak": random.choice(MEAL_IDEAS["Doručak"]),
+                "Ručak": random.choice(MEAL_IDEAS["Ručak"]),
+                "Večera": random.choice(MEAL_IDEAS["Večera"])
+            }
+        
+        if 'daily_plan' in st.session_state:
+            for meal, desc in st.session_state.daily_plan.items():
+                st.markdown(f"""<div class="meal-box"><strong>{meal}:</strong> {desc}</div>""", unsafe_allow_html=True)
+    
     st.divider()
-    st.subheader("Dnevni Progres")
-    p1, p2, p3 = st.columns(3)
-    p1.write("Masti"); p1.progress(0.6)
-    p2.write("Proteini"); p2.progress(0.4)
-    p3.write("UH"); p3.progress(0.15)
+    st.subheader("🔍 Pretraga baze namirnica")
+    selected = st.multiselect("Odaberi što si jeo:", list(KETO_DB.keys()))
+    if selected:
+        total_mg = sum([KETO_DB[i]['mg'] for i in selected])
+        total_kcal = sum([KETO_DB[i]['kcal'] for i in selected])
+        st.info(f"Unos: {total_kcal} kcal | {total_mg}mg Magnezija")
 
-# --- TAB 4: BIOMARKERI (GKI) ---
+# --- BIOMARKERI ---
 with tab_biomarkers:
-    st.subheader("GKI (Glucose-Ketone Index) Analiza")
+    st.subheader("GKI Analiza")
     bk1, bk2 = st.columns(2)
-    with bk1:
-        gluc = st.number_input("Glukoza u krvi (mmol/L)", 3.0, 15.0, 4.5)
-    with bk2:
-        keto = st.number_input("Ketoni u krvi (mmol/L)", 0.0, 8.0, 1.5)
-    
-    gki_val = gluc / keto if keto > 0 else 0
-    st.metric("Tvoj GKI", f"{gki_val:.2f}")
-    
-    if gki_val < 3: st.success("Duboka terapeutska ketoza")
-    elif gki_val < 9: st.info("Nutritivna ketoza (gubitak masnoće)")
-    else: st.warning("Izvan optimalne ketoze")
+    glu = bk1.number_input("Glukoza (mmol/L)", 3.0, 12.0, 4.5)
+    ket = bk2.number_input("Ketoni (mmol/L)", 0.1, 8.0, 1.5)
+    st.metric("GKI Index", f"{glu/ket:.2f}")
 
-# --- TAB 5: PROFIL & EXPORT ---
+# --- PROFIL ---
 with tab_data:
-    st.subheader("Upravljanje podacima")
-    st.write(f"Korisnik: **{user_name}**")
-    
-    weight_data = load_data(FILES["weight"], ["Date", "Weight"])
-    new_w = st.number_input("Zapiši današnju težinu", 40.0, 200.0, 85.0)
-    if st.button("Spremi težinu"):
-        new_entry = pd.DataFrame({"Date": [datetime.date.today()], "Weight": [new_w]})
-        save_data(pd.concat([weight_data, new_entry]), FILES["weight"])
-        st.success("Spremljeno!")
-
-    st.divider()
-    if st.button("📥 Izvezi sve podatke (CSV)"):
-        st.write("Podaci su spremni za preuzimanje.")
-
-st.markdown("---")
-st.caption("Keto Intelligence Pro © 2026 | All features active")
+    st.subheader("Povijest Težine")
+    weight_df = load_data(FILES["weight"], ["Date", "Weight"])
+    new_w = st.number_input("Nova težina (kg)", 40.0, 200.0, 85.0, key="save_w")
+    if st.button("Spremi"):
+        new_entry = pd.DataFrame({"Date": [datetime.date.today().strftime('%Y-%m-%d')], "Weight": [new_w]})
+        save_data(pd.concat([weight_df, new_entry], ignore_index=True), FILES["weight"])
+        st.rerun()
+    if not weight_df.empty:
+        st.line_chart(weight_df.set_index("Date"))
