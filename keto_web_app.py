@@ -322,82 +322,52 @@ with t_fast:
         st.subheader("📋 Povijest postova")
         st.dataframe(f_df.iloc[::-1], use_container_width=True, hide_index=True)
 
-# ---------------- TAB 3: MENU ----------------
+# ---------------- TAB 3: GENERATOR JELOVNIKA ----------------
 with t_menu:
-    p_df = load_data(PROFILE_FILE, [])
+    st.header("🥗 Keto Menu Generator")
     
-    if p_df.empty:
-        st.warning("⚠️ Molimo prvo ispunite profil u prvom tabu.")
-    else:
-        # Učitaj podatke i izračunaj ciljeve
-        user = p_df.iloc[0]
-        macros = calculate_macros(user["Spol"], user["Tezina"], user["Visina"], user["Godine"], user["Aktivnost"], user["Cilj"])
-        
-        st.subheader("🎯 Tvoji dnevni makro ciljevi")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Kalorije", f"{macros['kcal']}")
-        c2.metric("Masti (70%)", f"{macros['fat']}g")
-        c3.metric("Proteini (25%)", f"{macros['prot']}g")
-        c4.metric("Ugljikohidrati (5%)", f"{macros['carb']}g")
-        
-        st.divider()
-        
-        btn_gen = st.button("🪄 GENERIRAJ OPTIMALNI MENU", use_container_width=True)
-        
-        if btn_gen:
-            # Filtriraj recepte po tipu
-            b_list = [x for x in KETO_MEALS if x['type'] == "Breakfast"]
-            l_list = [x for x in KETO_MEALS if x['type'] == "Lunch"]
-            d_list = [x for x in KETO_MEALS if x['type'] == "Dinner"]
-            s_list = [x for x in KETO_MEALS if x['type'] == "Snack"]
-            
-            # ALGORITAM: Vrti 1000 nasumičnih kombinacija i traži onu najbližu ciljanim kalorijama
-            best_combo = None
-            min_diff = float('inf')
-            
-            for _ in range(1000):
-                # Odaberi po jedno jelo iz svake kategorije
-                b = random.choice(b_list)
-                l = random.choice(l_list)
-                d = random.choice(d_list)
-                s = random.choice(s_list)
-                
-                total_k = b['kcal'] + l['kcal'] + d['kcal'] + s['kcal']
-                diff = abs(total_k - macros['kcal'])
-                
-                if diff < min_diff:
-                    min_diff = diff
-                    best_combo = [b, l, d, s]
-            
-            # Prikaz najboljeg menija
-            st.success(f"Generiran meni! Odstupanje od cilja: samo {int(min_diff)} kcal.")
-            
-            meals = best_combo
-            labels = ["🌅 Doručak", "☀️ Ručak", "🌙 Večera", "🍿 Snack"]
-            
-            for i, meal in enumerate(meals):
-                with st.expander(f"{labels[i]}: {meal['name']} ({meal['kcal']} kcal)", expanded=True):
-                    st.markdown(f"**Sastojci:** {', '.join(meal['ingredients'])}")
-                    st.info(f"**Priprema:** {meal['preparation']}")
-                    st.caption(f"Masti: {meal['fat']}g | Proteini: {meal['prot']}g | UH: {meal['carb']}g")
+    # Parametri za generiranje
+    col_kat1, col_kat2 = st.columns(2)
+    with col_kat1:
+        cilj = st.selectbox("Cilj:", ["Gubitak masnoće", "Održavanje", "Dobivanje mišića"])
+    with col_kat2:
+        broj_obroka = st.slider("Broj obroka dnevno:", 1, 4, 2)
 
-            # --- FIKSNA PIĆA (ZAHTJEV KORISNIKA) ---
-            st.warning("☕ **Napomena za pića:** Uz ove obroke dozvoljeni su voda, nezaslađeni čaj i crna kava u neograničenim količinama.")
-            
-            # --- DETALJNA STATISTIKA (DELTA) ---
-            st.divider()
-            st.subheader("📊 Analiza generiranog dana")
-            
-            tk = sum(m['kcal'] for m in meals)
-            tf = sum(m['fat'] for m in meals)
-            tp = sum(m['prot'] for m in meals)
-            tc = sum(m['carb'] for m in meals)
-            
-            k1, k2, k3, k4 = st.columns(4)
-            k1.metric("Ukupno Kcal", f"{tk}", delta=f"{tk - macros['kcal']}", delta_color="inverse")
-            k2.metric("Masti", f"{tf}g", delta=f"{tf - macros['fat']}")
-            k3.metric("Proteini", f"{tp}g", delta=f"{tp - macros['prot']}")
-            k4.metric("UH", f"{tc}g", delta=f"{tc - macros['carb']}", delta_color="inverse")
+    if st.button("✨ Generiraj personalizirani meni", use_container_width=True):
+        with st.spinner("Računam nutritivne vrijednosti..."):
+            # OVDJE IDE TVOJA FUNKCIJA ZA POZIV AI-a (npr. get_keto_menu)
+            # Pretpostavimo da AI vraća rječnik 'generated_menu'
+            # Primjer strukture koju AI treba vratiti:
+            # {
+            #   "Meni 1 (750 kcal | P: 50g, U: 10g, M: 60g)": [
+            #       {"n": "Piletina", "g": "200g", "m": "P:46g, U:0g, M:6g"},
+            #       {"n": "Avokado", "g": "100g", "m": "P:2g, U:2g, M:15g"}
+            #   ],
+            #   "Meni 2 (...": [...]
+            # }
+            st.session_state.last_menu = generated_menu # Spremamo u session state
+
+    # PRIKAZ MENIJA
+    if "last_menu" in st.session_state:
+        st.write("### Prijedlozi obroka:")
+        
+        for menu_naslov, namirnice in st.session_state.last_menu.items():
+            # st.expander je po defaultu ZATVOREN (expanded=False)
+            with st.expander(f"🍴 {menu_naslov}", expanded=False):
+                # Zaglavlje unutar expandera
+                cols = st.columns([3, 2, 3])
+                cols[0].write("**Namirnica**")
+                cols[1].write("**Količina**")
+                cols[2].write("**Makrosi**")
+                st.divider()
+
+                for stavka in namirnice:
+                    c1, c2, c3 = st.columns([3, 2, 3])
+                    c1.write(stavka['n']) # Naziv namirnice
+                    c2.write(f"`{stavka['g']}`") # Gramaža (označeno kao kod za vidljivost)
+                    c3.write(f"*{stavka['m']}*") # Makrosi namirnice (italic)
+                
+                st.button(f"Spremi ovaj meni u povijest", key=menu_naslov)
 
 # ---------------- TAB 4: NAPREDAK ----------------
 with t_prog:
