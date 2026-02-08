@@ -82,6 +82,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["🕒 Fasting", "🥗 Food & Recipes", "💊 S
 # --- TAB 1: FASTING ---
 with tab1:
     st.header("16/8 Fasting Tracker")
+    
     if 'start_time' not in st.session_state:
         st.session_state.start_time = None
     
@@ -89,6 +90,8 @@ with tab1:
     with c1:
         if st.button("🚀 Start Fast"):
             st.session_state.start_time = datetime.datetime.now()
+            st.rerun()
+
     with c2:
         if st.button("🍽️ End & Log"):
             if st.session_state.start_time:
@@ -97,87 +100,81 @@ with tab1:
                 save_data(pd.concat([load_data(FAST_FILE, ["Date", "Hours"]), new_fast]), FAST_FILE)
                 st.session_state.start_time = None
                 st.success(f"Logged {duration:.1f} hours!")
+                st.rerun()
+            else:
+                st.warning("Post nije pokrenut.")
 
     if st.session_state.start_time:
         elapsed = (datetime.datetime.now() - st.session_state.start_time).total_seconds() / 3600
-        st.metric("Current Timer", f"{elapsed:.1f} hrs")
+        st.metric("Current Timer", f"{elapsed:.2f} hrs")
         st.progress(min(elapsed/16, 1.0))
+        st.info(f"Započeto u: {st.session_state.start_time.strftime('%H:%M:%S')}")
     
     st.subheader("📜 History")
-    st.dataframe(load_data(FAST_FILE, ["Date", "Hours"]).tail(5), use_container_width=True)
+    df_fast = load_data(FAST_FILE, ["Date", "Hours"])
+    if not df_fast.empty:
+        st.dataframe(df_fast.tail(5), use_container_width=True)
 
 # --- TAB 2: FOOD & RECIPES ---
 with tab2:
-    st.header("🔍 Globalna Baza Hrane (Open Food Facts)")
-    st.write("Pretraži nutritivne vrijednosti milijuna proizvoda (besplatno).")
-    
-    food_search = st.text_input("Unesi naziv namirnice (npr. 'Gouda', 'Dukatos', 'Walnuts'):")
+    st.header("🔍 Globalna Baza Hrane")
+    food_search = st.text_input("Pretraži namirnicu (Open Food Facts):")
     
     if food_search:
-        # Poziv besplatnom API-ju
         url = f"https://world.openfoodfacts.org/cgi/search.pl?search_terms={food_search}&search_simple=1&action=process&json=1&page_size=5"
         try:
             response = requests.get(url)
             data = response.json()
-            
             if data.get('products'):
                 for product in data['products']:
                     name = product.get('product_name', 'Nepoznato')
                     brand = product.get('brands', 'Nepoznat brend')
                     nutriments = product.get('nutriments', {})
                     
-                    fat_100g = nutriments.get('fat_100g', 0)
-                    carbs_100g = nutriments.get('carbohydrates_100g', 0)
-                    protein_100g = nutriments.get('proteins_100g', 0)
-                    kcal_100g = nutriments.get('energy-kcal_100g', 0)
+                    fat = nutriments.get('fat_100g', 0)
+                    carbs = nutriments.get('carbohydrates_100g', 0)
+                    prots = nutriments.get('proteins_100g', 0)
+                    kcal = nutriments.get('energy-kcal_100g', 0)
 
-                    with st.expander(f"📊 {name} - {brand}"):
-                        c1, c2, c3, c4 = st.columns(4)
-                        c1.metric("Kalorije", f"{kcal_100g} kcal")
-                        c2.metric("Masti", f"{fat_100g}g")
-                        c3.metric("Ugljikohidrati", f"{carbs_100g}g")
-                        c4.metric("Proteini", f"{protein_100g}g")
-                        st.caption("Nutritivne vrijednosti na 100g.")
+                    with st.expander(f"📊 {name} ({brand})"):
+                        col_a, col_b, col_c, col_d = st.columns(4)
+                        col_a.metric("Kcal", f"{kcal}")
+                        col_b.metric("Masti", f"{fat}g")
+                        col_c.metric("UH", f"{carbs}g")
+                        col_d.metric("Prot", f"{prots}g")
             else:
-                st.warning("Nije pronađen nijedan proizvod.")
+                st.warning("Nema rezultata.")
         except:
-            st.error("Greška u povezivanju s bazom.")
+            st.error("Greška s bazom podataka.")
 
     st.divider()
     st.header("🍳 Moji Keto Recepti")
-    search_food = st.multiselect("Select items in your fridge (for recipe matching):", list(KETO_FOODS.keys()))
+    search_food = st.multiselect("Odaberi namirnice iz hladnjaka:", list(KETO_FOODS.keys()))
     
     shopping_list = []
-
     if search_food:
-        st.write("### 📊 Macros (Fridge Items)")
         for f in search_food:
             m = KETO_FOODS[f]
             st.caption(f"**{f}**: {m['Fat']}g Fat | {m['NetCarb']}g Carbs | {m['Protein']}g Protein")
         
-        st.divider()
-        st.header("🍳 Recommended Recipes")
         for r in RECIPES_DB:
             if any(item in search_food for item in r['fridge']):
                 with st.expander(f"⭐ {r['name']}"):
-                    st.write(f"**📝 Steps:** {r['instructions']}")
-                    st.write(f"**🛒 Need to buy:** {', '.join(r['buy'])}")
+                    st.write(f"**Upute:** {r['instructions']}")
+                    st.write(f"**Potrebno kupiti:** {', '.join(r['buy'])}")
                     shopping_list.extend(r['buy'])
                     for link in r['links']:
-                        st.write(f"- [Video/Guide]({link})")
+                        st.write(f"- [Link]({link})")
         
         if shopping_list:
-            st.divider()
-            st.subheader("🛒 Automatic Shopping List")
-            unique_items = list(set(shopping_list))
-            for item in unique_items:
+            st.subheader("🛒 Lista za kupovinu")
+            for item in list(set(shopping_list)):
                 st.write(f"- [ ] {item}")
 
 # --- TAB 3: SUPPLEMENTS ---
 with tab3:
     st.header("Supplement Protocol")
     my_stack = st.multiselect("Add to your daily stack:", list(SUPPLEMENT_DB.keys()))
-    
     for s in my_stack:
         data = SUPPLEMENT_DB[s]
         with st.expander(f"💊 {s}"):
@@ -192,6 +189,7 @@ with tab4:
     if st.button("Save Weight"):
         new_w = pd.DataFrame({"Date": [datetime.date.today().strftime('%Y-%m-%d')], "Weight_kg": [w_val]})
         save_data(pd.concat([load_data(WEIGHT_FILE, ["Date", "Weight_kg"]), new_w]), WEIGHT_FILE)
+        st.rerun()
     
     df_w = load_data(WEIGHT_FILE, ["Date", "Weight_kg"])
     if not df_w.empty:
