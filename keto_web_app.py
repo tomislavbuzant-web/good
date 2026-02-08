@@ -159,63 +159,43 @@ def calculate_macros(spol, tezina, visina, godine, aktivnost, cilj):
 # --- 4. GLAVNO SUČELJE (TABS) ---
 t_prof, t_fast, t_menu, t_prog = st.tabs(["👤 Profil", "🕒 Post", "🥗 Personalizirani Menu", "📈 Napredak"])
 
-# ---------------- TAB 1: PROFIL (UNOS + SKRIVENA LOGIKA) ----------------
-with t_profile:
-    st.header("👤 Korisnički Profil")
+# ---------------- TAB 1: PROFIL ----------------
+with t_prof:
+    st.header("Postavke Profila")
+    p_df = load_data(PROFILE_FILE, ["Ime", "Spol", "Tezina", "Visina", "Godine", "Aktivnost", "Cilj"])
+    init = p_df.iloc[0] if not p_df.empty else None
     
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        tezina = st.number_input("Težina (kg):", min_value=40, max_value=200, value=80)
-        visina = st.number_input("Visina (cm):", min_value=120, max_value=250, value=180)
-    with col_p2:
-        godine = st.number_input("Godine:", min_value=15, max_value=100, value=30)
-        spol = st.selectbox("Spol:", ["Muško", "Žensko"])
-    
-    aktivnost = st.select_slider(
-        "Razina aktivnosti:",
-        options=["Sjedilački", "Lagana", "Umjerena", "Visoka", "Ekstremna"]
-    )
-    
-    cilj = st.selectbox("Tvoj cilj:", ["Gubitak masnoće", "Održavanje", "Dobivanje mišića"])
-
-    if st.button("💾 Spremi profil", use_container_width=True):
-        # --- POZADINSKI IZRAČUN (Bez ispisa ispod gumba) ---
+    with st.form("profile_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            ime = st.text_input("Ime", value=init["Ime"] if init is not None else "")
+            spol = st.selectbox("Spol", ["Muško", "Žensko"], index=0 if init is None or init["Spol"]=="Muško" else 1)
+            godine = st.number_input("Godine", min_value=10, max_value=100, value=int(init["Godine"]) if init is not None else 30)
+        with col2:
+            tezina = st.number_input("Težina (kg)", min_value=30.0, max_value=200.0, value=float(init["Tezina"]) if init is not None else 80.0)
+            visina = st.number_input("Visina (cm)", min_value=100.0, max_value=250.0, value=float(init["Visina"]) if init is not None else 180.0)
+            cilj = st.selectbox("Cilj", ["Gubitak masti", "Održavanje", "Dobivanje mišića"], index=0 if init is None else ["Gubitak masti", "Održavanje", "Dobivanje mišića"].index(init["Cilj"]))
         
-        # 1. BMR Kalkulacija
-        if spol == "Muško":
-            bmr = 10 * tezina + 6.25 * visina - 5 * godine + 5
-        else:
-            bmr = 10 * tezina + 6.25 * visina - 5 * godine - 161
+        aktivnost = st.select_slider("Razina aktivnosti", options=["Sjedilački", "Lagano", "Umjereno", "Vrlo aktivno"], value=init["Aktivnost"] if init is not None else "Sjedilački")
+        
+        submit = st.form_submit_button("Spremi Profil")
+        
+        if submit:
+            # Spremanje profila
+            new_profile = pd.DataFrame([{"Ime": ime, "Spol": spol, "Tezina": tezina, "Visina": visina, "Godine": godine, "Aktivnost": aktivnost, "Cilj": cilj}])
+            save_data(new_profile, PROFILE_FILE)
             
-        # 2. TDEE (Održavanje)
-        faktori = {"Sjedilački": 1.2, "Lagana": 1.375, "Umjerena": 1.55, "Visoka": 1.725, "Ekstremna": 1.9}
-        tdee = bmr * faktori[aktivnost]
-        
-        # 3. Personalizacija kalorija prema cilju
-        if cilj == "Gubitak masnoće":
-            ciljni_kcal = tdee - 500
-        elif cilj == "Dobivanje mišića":
-            ciljni_kcal = tdee + 300
-        else:
-            ciljni_kcal = tdee
+            # Automatsko spremanje kilaže u povijest (za grafikon)
+            w_df = load_data(WEIGHT_FILE, ["Datum", "Tezina"])
+            current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+            # Dodaj novi zapis
+            new_weight = pd.DataFrame([{"Datum": current_date, "Tezina": tezina}])
+            # Spoji i makni duplikate za isti dan (zadrži zadnji unos)
+            w_df = pd.concat([w_df, new_weight]).drop_duplicates(subset="Datum", keep="last")
+            save_data(w_df, WEIGHT_FILE)
             
-        # 4. Keto makros (Standardni omjer: 5% UH, 25% P, 70% M)
-        # Izračunato u gramima (P i UH = 4 kcal/g, Masti = 9 kcal/g)
-        u_grama = (ciljni_kcal * 0.05) / 4
-        p_grama = (ciljni_kcal * 0.25) / 4
-        m_grama = (ciljni_kcal * 0.70) / 9
-        
-        # SPREMANJE U SESSION STATE za Tab 3
-        st.session_state.user_macros = {
-            "kcal": int(ciljni_kcal),
-            "p": int(p_grama),
-            "u": int(u_grama),
-            "m": int(m_grama)
-        }
-        st.session_state.user_goal = cilj
-        
-        # Samo potvrda bez prikazivanja brojki
-        st.success("✅ Profil je spremljen. Makronutrijenti su izračunati i spremni za tvoj jelovnik!")
+            st.success("Profil spremljen! Kilaža zabilježena u grafikonu.")
+            st.rerun()
 
 # ---------------- TAB 2: POST (DETALJNE METODE + DVIJE ŠTOPERICE) ----------------
 with t_fast:
