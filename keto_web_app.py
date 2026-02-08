@@ -322,61 +322,77 @@ with t_fast:
         st.subheader("📋 Povijest postova")
         st.dataframe(f_df.iloc[::-1], use_container_width=True, hide_index=True)
 
-# ---------------- TAB 3: GENERATOR JELOVNIKA (FINAL FIX) ----------------
+# ---------------- TAB 3: GENERATOR JELOVNIKA (PERSONALIZIRANA MATEMATIKA) ----------------
 with t_menu:
     st.header("🥗 Personalizirani Keto Meniji")
 
-    # 1. PRIKAZ MACROSA IZ PROFILA (Iznad cilja)
-    # Pretpostavljamo da su ovi podaci spremljeni u session_state nakon izračuna u Profilu
+    # 1. DOHVAĆANJE PODATAKA IZ PROFILA
     if "user_macros" in st.session_state:
         m = st.session_state.user_macros
-        st.info(f"📊 Tvoji dnevni makrosi: **{m['kcal']} kcal** | **P: {m['p']}g** | **U: {m['u']}g** | **M: {m['m']}g**")
+        # Prikaz iznad cilja
+        st.subheader("Tvoji dnevni makrosi")
+        cols = st.columns(4)
+        cols[0].metric("Kalorije", f"{m['kcal']} kcal")
+        cols[1].metric("Proteini", f"{m['p']}g")
+        cols[2].metric("Ugljikohidrati", f"{m['u']}g")
+        cols[3].metric("Masti", f"{m['m']}g")
+        
+        # 2. FIKSNI CILJ IZ PROFILA
+        trenutni_cilj = st.session_state.get("user_goal", "Gubitak masnoće")
+        st.write(f"🎯 **Trenutni cilj:** {trenutni_cilj}")
     else:
-        st.warning("⚠️ Prvo izračunaj makrose u Tabu 1 (Profil).")
+        st.error("⚠️ Prvo unesi podatke i izračunaj makrose u Tabu 1 (Profil)!")
+        st.stop()
 
-    # 2. FIKSNI CILJ (Iz profila)
-    trenutni_cilj = st.session_state.get("user_goal", "Gubitak masnoće")
-    st.write(f"**Tvoj fiksni cilj:** {trenutni_cilj}")
+    st.divider()
 
     # 3. SLIDER ZA OBROKE (1, 2, 3, 3+snack)
     opcije_obroka = {1: "1", 2: "2", 3: "3", 4: "3+snack"}
     broj_obroka_slider = st.select_slider(
-        "Broj obroka dnevno:",
+        "Odaberi broj obroka za koje želiš rasporediti makrose:",
         options=[1, 2, 3, 4],
         format_func=lambda x: opcije_obroka[x]
     )
 
-    if st.button("✨ Generiraj personalizirani meni", use_container_width=True):
-        with st.spinner("Generiram recepte..."):
-            # Ovdje AI generira listu obroka. 
-            # Broj generiranih menija odgovara broj_obroka_slider-u.
-            # ISPRAVAN FORMAT PODATAKA (za tvoj AI prompt):
+    # Izračun makrosa po obroku (za AI prompt)
+    dio = 3.5 if broj_obroka_slider == 4 else broj_obroka_slider
+    ciljani_kcal = int(m['kcal'] / dio)
+    ciljani_p = int(m['p'] / dio)
+    ciljani_u = int(m['u'] / dio)
+    ciljani_m = int(m['m'] / dio)
+
+    if st.button("✨ Generiraj meni prema mojim brojkama", use_container_width=True):
+        with st.spinner(f"Računam obroke od po {ciljani_kcal} kcal..."):
+            
+            # Ovdje tvoja funkcija šalje AI-u: "Generiraj {broj_obroka_slider} obroka, 
+            # svaki mora imati cca {ciljani_kcal}kcal, {ciljani_p}g P, {ciljani_u}g U, {ciljani_m}g M."
+            
+            # SIMULACIJA REZULTATA (Ovdje dolazi tvoj AI output)
             st.session_state.generated_menus = [
                 {
-                    "naslov": "Pečeni losos sa šparogama",
-                    "ukupno": "(720 kcal | P: 40g, U: 5g, M: 58g)",
+                    "naslov": "Keto Piletina u kremastom umaku",
+                    "ukupno": f"({ciljani_kcal} kcal | P: {ciljani_p}g, U: {ciljani_u}g, M: {ciljani_m}g)",
                     "hrana": [
-                        {"n": "Losos file", "g": "200g", "m": "Prot:40g, UH:0g, Masti:26g"},
-                        {"n": "Šparoge", "g": "150g", "m": "Prot:3g, UH:4g, Masti:12g"}
+                        {"n": "Pileći file", "g": "200g", "m": f"Prot:{ciljani_p-5}g, UH:0g, Masti:10g"},
+                        {"n": "Vrhnje za kuhanje (30% m.)", "g": "50g", "m": f"Prot:2g, UH:{ciljani_u}g, Masti:{ciljani_m-10}g"}
                     ],
-                    "priprema": "Losos začinite solju, paprom i limunom te pecite na papiru za pečenje 15-20 minuta na 200°C. Šparoge kratko tostirajte na tavi s malo maslaca dok ne omekšaju. Poslužite toplo uz dodatnu žlicu maslinovog ulja preko povrća."
+                    "priprema": "Piletinu narežite na kockice i naglo popržite na tavi dok ne dobije zlatnu boju. Smanjite vatru, ulijte vrhnje i začinite začinskim biljem te pustite da prokuha 2-3 minute dok se umak ne zgusne. Poslužite uz svježu zelenu salatu začinjenu maslinovim uljem."
                 }
             ] * (broj_obroka_slider if broj_obroka_slider < 4 else 4)
 
-    # 4, 5 i 6. PRIKAZ MENIJA
+    # 4, 5 i 6. PRECIZAN PRIKAZ
     if "generated_menus" in st.session_state:
-        for i, obrok in enumerate(st.session_state.generated_menus):
-            # Naziv menija + macros u formatu (850 kcal | P: 45g, U: 8g, M: 65g)
-            st.markdown(f"### {obrok['naslov']} {obrok['ukupno']}")
+        for obrok in st.session_state.generated_menus:
+            # Naslov s makrosima
+            st.markdown(f"### 🍴 {obrok['naslov']} {obrok['ukupno']}")
             
-            # Lista namirnica u formatu (150g) — Prot:4g, UH:5g, Masti:12g
+            # Namirnice u tvom formatu
             for stavka in obrok['hrana']:
                 st.write(f"• **{stavka['n']}** ({stavka['g']}) — {stavka['m']}")
             
-            # Opširnija priprema
-            with st.container():
-                st.write("**Priprema:**")
-                st.info(obrok['priprema'])
+            # Detaljna priprema
+            st.markdown("**Priprema:**")
+            st.write(obrok['priprema'])
             st.divider()
             
 # ---------------- TAB 4: NAPREDAK ----------------
