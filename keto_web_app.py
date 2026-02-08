@@ -5,12 +5,15 @@ import os
 import random
 import plotly.express as px
 
-# --- 1. KONFIGURACIJA ---
+# --- 1. POSTAVKE APLIKACIJE ---
 st.set_page_config(page_title="Keto Intelligence Pro", page_icon="🥑", layout="wide")
 
+# Datoteke za spremanje podataka
 PROFILE_FILE = "user_profile.csv"
 FAST_FILE = "fasting_history.csv"
+WEIGHT_FILE = "weight_history.csv"
 
+# Funkcije za rad s podacima
 def save_data(df, filename): df.to_csv(filename, index=False)
 def load_data(filename, columns):
     if os.path.exists(filename):
@@ -18,95 +21,303 @@ def load_data(filename, columns):
         except: return pd.DataFrame(columns=columns)
     return pd.DataFrame(columns=columns)
 
-# --- 2. BAZA (Ovdje ubaci onih 80 recepata koje sam ti poslao prošli put) ---
+# --- 2. KOMPLETNA BAZA KETO RECEPATA (20 po kategoriji = 80 ukupno) ---
 KETO_MEALS = [
-    {"name": "Jaja sa slaninom i avokadom", "type": "Breakfast", "kcal": 550, "fat": 45, "carb": 5, "prot": 25, "ingredients": ["3 jaja", "Slanina (50g)", "Avokado (100g)"], "preparation": "Pecite slaninu i jaja na maslacu."},
-    # ... Ovdje idu svi ostali recepti (Ručak, Večera, Snack) ...
-    {"name": "Piletina u curry umaku", "type": "Lunch", "kcal": 610, "fat": 45, "carb": 7, "prot": 42, "ingredients": ["Piletina", "Kokosovo mlijeko"], "preparation": "Dinstajte na laganoj vatri."},
-    {"name": "Ribeye Steak", "type": "Dinner", "kcal": 780, "fat": 62, "carb": 0, "prot": 52, "ingredients": ["Steak", "Maslac"], "preparation": "Pecite na jakoj vatri."},
-    {"name": "Bademi i orasi", "type": "Snack", "kcal": 190, "fat": 17, "carb": 3, "prot": 6, "ingredients": ["Orašasti plodovi"], "preparation": "Spremno za jelo."}
+    # --- DORUČAK (20 opcija) ---
+    {"name": "Jaja sa slaninom i avokadom", "type": "Breakfast", "kcal": 550, "fat": 45, "carb": 5, "prot": 25, "ingredients": ["3 jaja", "Slanina (50g)", "Avokado"], "preparation": "Ispecite slaninu i jaja."},
+    {"name": "Keto Omelet sa špinatom", "type": "Breakfast", "kcal": 420, "fat": 34, "carb": 4, "prot": 24, "ingredients": ["3 jaja", "Špinat", "Feta sir"], "preparation": "Umutite i ispecite."},
+    {"name": "Chia puding s kokosom", "type": "Breakfast", "kcal": 350, "fat": 28, "carb": 6, "prot": 12, "ingredients": ["Chia sjemenke", "Kokosovo mlijeko"], "preparation": "Hladiti preko noći."},
+    {"name": "Kuhana jaja i orasi", "type": "Breakfast", "kcal": 310, "fat": 25, "carb": 3, "prot": 18, "ingredients": ["2 jaja", "Orasi (30g)"], "preparation": "Skuhajte jaja, poslužite s orasima."},
+    {"name": "Keto palačinke", "type": "Breakfast", "kcal": 480, "fat": 38, "carb": 7, "prot": 20, "ingredients": ["Bademovo brašno", "Jaja", "Krem sir"], "preparation": "Pecite male palačinke."},
+    {"name": "Dimljeni losos i krem sir", "type": "Breakfast", "kcal": 390, "fat": 30, "carb": 4, "prot": 26, "ingredients": ["Losos", "Krem sir"], "preparation": "Poslužite hladno."},
+    {"name": "Paški sir i masline", "type": "Breakfast", "kcal": 450, "fat": 38, "carb": 3, "prot": 22, "ingredients": ["Tvrdi sir", "Masline"], "preparation": "Narežite na kockice."},
+    {"name": "Grčki jogurt i bademi", "type": "Breakfast", "kcal": 380, "fat": 32, "carb": 8, "prot": 15, "ingredients": ["Punomasni jogurt", "Bademi"], "preparation": "Pomiješajte."},
+    {"name": "Tuna salata s jajima", "type": "Breakfast", "kcal": 410, "fat": 30, "carb": 2, "prot": 32, "ingredients": ["Tuna", "2 jaja", "Majoneza"], "preparation": "Pomiješajte sve sastojke."},
+    {"name": "Keto tost s maslacem", "type": "Breakfast", "kcal": 340, "fat": 28, "carb": 4, "prot": 12, "ingredients": ["Keto kruh", "Maslac"], "preparation": "Tostirajte i namažite."},
+    {"name": "Zrnati sir i sjemenke", "type": "Breakfast", "kcal": 290, "fat": 20, "carb": 5, "prot": 24, "ingredients": ["Zrnati sir", "Bučine sjemenke"], "preparation": "Pomiješajte."},
+    {"name": "Pršut i mozzarela", "type": "Breakfast", "kcal": 430, "fat": 34, "carb": 2, "prot": 28, "ingredients": ["Pršut", "Mozzarella"], "preparation": "Složite na tanjur."},
+    {"name": "Šparoge i pečena jaja", "type": "Breakfast", "kcal": 370, "fat": 30, "carb": 5, "prot": 18, "ingredients": ["Šparoge", "2 jaja", "Maslac"], "preparation": "Ispecite šparoge pa dodajte jaja."},
+    {"name": "Keto smoothie (Avokado)", "type": "Breakfast", "kcal": 410, "fat": 36, "carb": 6, "prot": 8, "ingredients": ["Avokado", "Bademovo mlijeko", "Kakao"], "preparation": "Izblendajte."},
+    {"name": "Zimska salama i sir", "type": "Breakfast", "kcal": 490, "fat": 40, "carb": 2, "prot": 25, "ingredients": ["Salama", "Gouda sir"], "preparation": "Narežite."},
+    {"name": "Omlet s gljivama", "type": "Breakfast", "kcal": 380, "fat": 30, "carb": 4, "prot": 22, "ingredients": ["3 jaja", "Šampinjoni"], "preparation": "Dinstajte gljive pa dodajte jaja."},
+    {"name": "Biftek i jaja", "type": "Breakfast", "kcal": 650, "fat": 48, "carb": 0, "prot": 52, "ingredients": ["Mali biftek", "2 jaja"], "preparation": "Ispecite meso i jaja na tavi."},
+    {"name": "Celer i maslac od kikirikija", "type": "Breakfast", "kcal": 320, "fat": 26, "carb": 6, "prot": 10, "ingredients": ["Celer stabljike", "Kikiriki maslac"], "preparation": "Namažite."},
+    {"name": "Sardine s rikulom", "type": "Breakfast", "kcal": 360, "fat": 28, "carb": 1, "prot": 24, "ingredients": ["Sardine u ulju", "Rikula"], "preparation": "Ocijedite i poslužite."},
+    {"name": "Halloumi sir na žaru", "type": "Breakfast", "kcal": 440, "fat": 35, "carb": 3, "prot": 26, "ingredients": ["Halloumi", "Maslinovo ulje"], "preparation": "Pecite dok ne porumeni."},
+
+    # --- RUČAK (20 opcija) ---
+    {"name": "Piletina Curry (Keto)", "type": "Lunch", "kcal": 610, "fat": 45, "carb": 7, "prot": 42, "ingredients": ["Piletina", "Kokosovo mlijeko", "Curry"], "preparation": "Dinstajte piletinu u umaku."},
+    {"name": "Tikvice Bolognese", "type": "Lunch", "kcal": 580, "fat": 42, "carb": 9, "prot": 38, "ingredients": ["Mljeveno meso", "Tikvice", "Rajčica"], "preparation": "Umak preko rezanih tikvica."},
+    {"name": "Odrezak s brokulom", "type": "Lunch", "kcal": 720, "fat": 55, "carb": 5, "prot": 48, "ingredients": ["Juneći odrezak", "Brokula", "Maslac"], "preparation": "Ispecite meso, brokulu na paru."},
+    {"name": "Cezar salata (bez krutona)", "type": "Lunch", "kcal": 550, "fat": 40, "carb": 4, "prot": 44, "ingredients": ["Piletina", "Zelena salata", "Parmezan"], "preparation": "Pomiješajte s dresingom."},
+    {"name": "Pečena svinjska rebra", "type": "Lunch", "kcal": 850, "fat": 65, "carb": 6, "prot": 50, "ingredients": ["Rebra", "Kupus salata"], "preparation": "Pecite u pećnici 2h."},
+    {"name": "Tuna steak i blitva", "type": "Lunch", "kcal": 480, "fat": 32, "carb": 2, "prot": 45, "ingredients": ["Tuna", "Blitva", "Češnjak"], "preparation": "Kratko ispecite tunu."},
+    {"name": "Sarma bez riže", "type": "Lunch", "kcal": 520, "fat": 38, "carb": 6, "prot": 34, "ingredients": ["Mljeveno meso", "Kiseli kupus"], "preparation": "Kuhajte 2h."},
+    {"name": "Pohana piletina (bademi)", "type": "Lunch", "kcal": 590, "fat": 42, "carb": 3, "prot": 48, "ingredients": ["Piletina", "Mljeveni bademi", "Jaja"], "preparation": "Pohajte u bademovom brašnu."},
+    {"name": "Piletina u vrhnju", "type": "Lunch", "kcal": 640, "fat": 48, "carb": 7, "prot": 42, "ingredients": ["Piletina", "Vrhnje za kuhanje", "Začini"], "preparation": "Dinstajte dok ne zgusne."},
+    {"name": "Kobasice i kiseli kupus", "type": "Lunch", "kcal": 710, "fat": 58, "carb": 8, "prot": 36, "ingredients": ["Keto kobasice", "Kiseli kupus"], "preparation": "Kuhajte ili pecite."},
+    {"name": "Pečena patka", "type": "Lunch", "kcal": 790, "fat": 62, "carb": 4, "prot": 50, "ingredients": ["Patka batak/zabatak", "Salata"], "preparation": "Pecite dok koža nije hrskava."},
+    {"name": "Teletina ispod peke (stil)", "type": "Lunch", "kcal": 680, "fat": 48, "carb": 2, "prot": 55, "ingredients": ["Teletina", "Tikvice", "Patlidžan"], "preparation": "Pecite poklopljeno u pećnici."},
+    {"name": "Riba u škartocu", "type": "Lunch", "kcal": 420, "fat": 28, "carb": 4, "prot": 38, "ingredients": ["Bijela riba", "Maslinovo ulje", "Povrće"], "preparation": "Pecite u papiru."},
+    {"name": "Keto Gulaš", "type": "Lunch", "kcal": 590, "fat": 42, "carb": 7, "prot": 45, "ingredients": ["Junetina kocke", "Luk", "Voda"], "preparation": "Dugo kuhajte na lagano."},
+    {"name": "Piletina Pesto", "type": "Lunch", "kcal": 620, "fat": 48, "carb": 5, "prot": 40, "ingredients": ["Piletina", "Zeleni pesto", "Mozzarella"], "preparation": "Zapecite u pećnici."},
+    {"name": "Keto Pizza (podloga sir)", "type": "Lunch", "kcal": 850, "fat": 68, "carb": 9, "prot": 42, "ingredients": ["Mozzarella", "Bademovo brašno", "Salama"], "preparation": "Napravite tijesto od sira i jaja."},
+    {"name": "Škampi na buzaru", "type": "Lunch", "kcal": 450, "fat": 30, "carb": 5, "prot": 38, "ingredients": ["Škampi", "Maslinovo ulje", "Češnjak"], "preparation": "Dinstajte na ulju i vinu."},
+    {"name": "Salata s govedinom", "type": "Lunch", "kcal": 510, "fat": 36, "carb": 3, "prot": 42, "ingredients": ["Hladna govedina", "Rikula", "Ulje"], "preparation": "Narežite meso na trakice."},
+    {"name": "Janjetina i mladi luk", "type": "Lunch", "kcal": 750, "fat": 58, "carb": 2, "prot": 52, "ingredients": ["Janjetina", "Mladi luk"], "preparation": "Pečeno meso."},
+    {"name": "Punjene paprike (sir/meso)", "type": "Lunch", "kcal": 530, "fat": 39, "carb": 7, "prot": 35, "ingredients": ["Paprike", "Mljeveno meso", "Jaje"], "preparation": "Pecite u pećnici."},
+
+    # --- VEČERA (20 opcija) ---
+    {"name": "Ribeye Steak", "type": "Dinner", "kcal": 780, "fat": 62, "carb": 0, "prot": 52, "ingredients": ["Steak", "Maslac"], "preparation": "Pecite 3 min sa svake strane."},
+    {"name": "Karbonara od tikvica", "type": "Dinner", "kcal": 540, "fat": 42, "carb": 9, "prot": 26, "ingredients": ["Tikvice trake", "Panceta", "Žumanjak"], "preparation": "Pomiješajte vruće tikvice i jaje."},
+    {"name": "Mozzarella i rajčica", "type": "Dinner", "kcal": 380, "fat": 30, "carb": 6, "prot": 22, "ingredients": ["Mozzarella", "Rajčica", "Bosiljak"], "preparation": "Caprese salata."},
+    {"name": "Svinjski kotlet na masti", "type": "Dinner", "kcal": 610, "fat": 45, "carb": 1, "prot": 42, "ingredients": ["Kotlet", "Svinjska mast"], "preparation": "Ispecite na tavi."},
+    {"name": "Salata od hobotnice/plodova", "type": "Dinner", "kcal": 410, "fat": 28, "carb": 4, "prot": 35, "ingredients": ["Plodovi mora", "Maslinovo ulje"], "preparation": "Skuhajte i ohladite."},
+    {"name": "Omlet s tartufatom", "type": "Dinner", "kcal": 460, "fat": 38, "carb": 3, "prot": 24, "ingredients": ["3 jaja", "Tartufata"], "preparation": "Ispecite mekani omlet."},
+    {"name": "Keto pogačice s čvarcima", "type": "Dinner", "kcal": 520, "fat": 48, "carb": 5, "prot": 18, "ingredients": ["Mljeveni čvarci", "Jaje", "Sir"], "preparation": "Ispecite u kalupima."},
+    {"name": "Pečeni Camembert", "type": "Dinner", "kcal": 440, "fat": 36, "carb": 2, "prot": 28, "ingredients": ["Camembert sir", "Orasi"], "preparation": "Pecite u pećnici 15 min."},
+    {"name": "Lignje na žaru", "type": "Dinner", "kcal": 480, "fat": 32, "carb": 5, "prot": 40, "ingredients": ["Lignje", "Maslinovo ulje", "Češnjak"], "preparation": "Kratko pecite."},
+    {"name": "Carpaccio od govedine", "type": "Dinner", "kcal": 350, "fat": 25, "carb": 1, "prot": 30, "ingredients": ["Sirova govedina", "Parmezan", "Rikula"], "preparation": "Tanko narezano."},
+    {"name": "Piletina Parmigiana (Keto)", "type": "Dinner", "kcal": 590, "fat": 42, "carb": 3, "prot": 45, "ingredients": ["Piletina", "Umak od rajčice", "Parmezan"], "preparation": "Zapecite sa sirom."},
+    {"name": "Hladna plata (Kulen/Sir)", "type": "Dinner", "kcal": 650, "fat": 55, "carb": 2, "prot": 38, "ingredients": ["Kulen", "Tvrdi sir", "Masline"], "preparation": "Narežite."},
+    {"name": "Karfiol s cheddar sirom", "type": "Dinner", "kcal": 410, "fat": 32, "carb": 8, "prot": 18, "ingredients": ["Karfiol", "Cheddar", "Vrhnje"], "preparation": "Zapecite u pećnici."},
+    {"name": "Srdele na gradele", "type": "Dinner", "kcal": 390, "fat": 26, "carb": 0, "prot": 36, "ingredients": ["Srdele", "Maslinovo ulje"], "preparation": "Pecite na roštilju/tavi."},
+    {"name": "Keto Tacosi (kora od sira)", "type": "Dinner", "kcal": 580, "fat": 45, "carb": 5, "prot": 38, "ingredients": ["Topljeni sir (kora)", "Mljeveno meso"], "preparation": "Otopite sir u krug, napunite mesom."},
+    {"name": "Miješano meso", "type": "Dinner", "kcal": 720, "fat": 52, "carb": 1, "prot": 55, "ingredients": ["Ćevapi (bez kruha)", "Vratina"], "preparation": "Roštilj."},
+    {"name": "Nicoise salata (Tuna)", "type": "Dinner", "kcal": 490, "fat": 38, "carb": 6, "prot": 30, "ingredients": ["Tuna", "Kuhano jaje", "Mahune"], "preparation": "Složite salatu."},
+    {"name": "Kuhane kobasice i senf", "type": "Dinner", "kcal": 620, "fat": 50, "carb": 4, "prot": 32, "ingredients": ["Kobasice", "Senf (bez šećera)"], "preparation": "Skuhajte."},
+    {"name": "File oslića na maslacu", "type": "Dinner", "kcal": 430, "fat": 32, "carb": 2, "prot": 35, "ingredients": ["Oslić", "Maslac", "Peršin"], "preparation": "Pecite na tavi."},
+    {"name": "Punjeni šampinjoni", "type": "Dinner", "kcal": 380, "fat": 30, "carb": 5, "prot": 20, "ingredients": ["Velike gljive", "Sir", "Slanina"], "preparation": "Napunite klobuke i pecite."},
+
+    # --- SNACK (20 opcija, bez posta) ---
+    {"name": "Bademi i orasi", "type": "Snack", "kcal": 190, "fat": 17, "carb": 3, "prot": 6, "ingredients": ["Bademi", "Orasi"], "preparation": "Spremno."},
+    {"name": "Masline i kockice sira", "type": "Snack", "kcal": 280, "fat": 26, "carb": 3, "prot": 10, "ingredients": ["Zelene masline", "Gauda"], "preparation": "Narežite."},
+    {"name": "Kuhano jaje i majoneza", "type": "Snack", "kcal": 210, "fat": 18, "carb": 1, "prot": 7, "ingredients": ["Jaje", "Majoneza"], "preparation": "Skuhajte."},
+    {"name": "Domaći čvarci", "type": "Snack", "kcal": 350, "fat": 32, "carb": 0, "prot": 14, "ingredients": ["Čvarci"], "preparation": "Spremno."},
+    {"name": "Pecivo od sira i jaja", "type": "Snack", "kcal": 220, "fat": 18, "carb": 2, "prot": 12, "ingredients": ["Sir", "Jaje"], "preparation": "Ispecite u mikrovalnoj."},
+    {"name": "Keto krekeri (lan/sezam)", "type": "Snack", "kcal": 180, "fat": 15, "carb": 4, "prot": 6, "ingredients": ["Sjemenke", "Voda"], "preparation": "Ispecite tanko."},
+    {"name": "Lješnjaci (šaka)", "type": "Snack", "kcal": 170, "fat": 16, "carb": 2, "prot": 4, "ingredients": ["Lješnjaci"], "preparation": "Spremno."},
+    {"name": "Tamna čokolada 90%", "type": "Snack", "kcal": 120, "fat": 10, "carb": 3, "prot": 2, "ingredients": ["Kockica čokolade"], "preparation": "Spremno."},
+    {"name": "Polovica avokada", "type": "Snack", "kcal": 240, "fat": 22, "carb": 3, "prot": 2, "ingredients": ["Avokado", "Sol"], "preparation": "Posolite."},
+    {"name": "Beef Jerky (suho meso)", "type": "Snack", "kcal": 150, "fat": 6, "carb": 2, "prot": 22, "ingredients": ["Sušena govedina"], "preparation": "Spremno."},
+    {"name": "Krastavci s vrhnjem", "type": "Snack", "kcal": 140, "fat": 12, "carb": 4, "prot": 3, "ingredients": ["Krastavac", "Kiselo vrhnje"], "preparation": "Narežite."},
+    {"name": "Tostirani bademi", "type": "Snack", "kcal": 180, "fat": 17, "carb": 3, "prot": 4, "ingredients": ["Bademi"], "preparation": "Kratko popržite."},
+    {"name": "Čips od parmezana", "type": "Snack", "kcal": 190, "fat": 14, "carb": 1, "prot": 15, "ingredients": ["Parmezan"], "preparation": "Otopite hrpice sira dok ne budu hrskave."},
+    {"name": "Rolice šunke i sira", "type": "Snack", "kcal": 210, "fat": 16, "carb": 2, "prot": 14, "ingredients": ["Šunka", "Sir listići"], "preparation": "Zarolajte."},
+    {"name": "Chia sjemenke u jogurtu", "type": "Snack", "kcal": 220, "fat": 18, "carb": 5, "prot": 8, "ingredients": ["Chia", "Jogurt"], "preparation": "Pustite da nabubri."},
+    {"name": "Maslac od badema (žlica)", "type": "Snack", "kcal": 100, "fat": 9, "carb": 2, "prot": 4, "ingredients": ["Bademov maslac"], "preparation": "Spremno."},
+    {"name": "Listići kokosa", "type": "Snack", "kcal": 150, "fat": 14, "carb": 3, "prot": 1, "ingredients": ["Kokos čips"], "preparation": "Spremno."},
+    {"name": "Suncokretove sjemenke", "type": "Snack", "kcal": 160, "fat": 14, "carb": 4, "prot": 6, "ingredients": ["Suncokret"], "preparation": "Spremno."},
+    {"name": "Brazilski orah (2 kom)", "type": "Snack", "kcal": 70, "fat": 7, "carb": 1, "prot": 1, "ingredients": ["Brazilski orah"], "preparation": "Spremno."},
+    {"name": "Kuglice od krem sira", "type": "Snack", "kcal": 230, "fat": 20, "carb": 2, "prot": 10, "ingredients": ["Krem sir", "Sezam"], "preparation": "Uvaljajte sir u sezam."},
 ]
 
-# --- 3. POMOĆNE FUNKCIJE ---
+# --- 3. LOGIKA IZRAČUNA MAKROSA ---
 def calculate_macros(spol, tezina, visina, godine, aktivnost, cilj):
-    bmr = (10 * tezina + 6.25 * visina - 5 * godine + 5) if spol == "Muško" else (10 * tezina + 6.25 * visina - 5 * godine - 161)
-    act_mult = {"Sjedilački": 1.2, "Lagano": 1.375, "Umjereno": 1.55, "Vrlo aktivno": 1.725}
+    # Mifflin-St Jeor formula
+    if spol == "Muško":
+        bmr = 10 * tezina + 6.25 * visina - 5 * godine + 5
+    else:
+        bmr = 10 * tezina + 6.25 * visina - 5 * godine - 161
+    
+    act_mult = {
+        "Sjedilački": 1.2, 
+        "Lagano": 1.375, 
+        "Umjereno": 1.55, 
+        "Vrlo aktivno": 1.725
+    }
+    
     tdee = bmr * act_mult[aktivnost]
+    
     if cilj == "Gubitak masti": target_kcal = tdee * 0.8
     elif cilj == "Dobivanje mišića": target_kcal = tdee * 1.1
-    else: target_kcal = tdee
-    return {"kcal": int(target_kcal), "fat": int((target_kcal * 0.7) / 9), "prot": int((target_kcal * 0.25) / 4), "carb": int((target_kcal * 0.05) / 4)}
+    else: target_kcal = tdee # Održavanje
+    
+    # Keto omjeri: 70% Masti, 25% Proteini, 5% UH
+    return {
+        "kcal": int(target_kcal),
+        "fat": int((target_kcal * 0.7) / 9),
+        "prot": int((target_kcal * 0.25) / 4),
+        "carb": int((target_kcal * 0.05) / 4)
+    }
 
-# --- 4. TABS ---
+# --- 4. GLAVNO SUČELJE (TABS) ---
 t_prof, t_fast, t_menu, t_prog = st.tabs(["👤 Profil", "🕒 Post", "🥗 Personalizirani Menu", "📈 Napredak"])
 
+# ---------------- TAB 1: PROFIL ----------------
 with t_prof:
-    st.header("Korisnički Profil")
+    st.header("Postavke Profila")
     p_df = load_data(PROFILE_FILE, ["Ime", "Spol", "Tezina", "Visina", "Godine", "Aktivnost", "Cilj"])
     init = p_df.iloc[0] if not p_df.empty else None
-    with st.form("p_form"):
-        c1, c2 = st.columns(2)
-        with c1:
+    
+    with st.form("profile_form"):
+        col1, col2 = st.columns(2)
+        with col1:
             ime = st.text_input("Ime", value=init["Ime"] if init is not None else "")
             spol = st.selectbox("Spol", ["Muško", "Žensko"], index=0 if init is None or init["Spol"]=="Muško" else 1)
-            godine = st.number_input("Godine", value=int(init["Godine"]) if init is not None else 30)
-        with c2:
-            tezina = st.number_input("Težina (kg)", value=float(init["Tezina"]) if init is not None else 80.0)
-            visina = st.number_input("Visina (cm)", value=float(init["Visina"]) if init is not None else 180.0)
-            cilj = st.selectbox("Cilj", ["Gubitak masti", "Održavanje", "Dobivanje mišića"])
-        aktivnost = st.select_slider("Aktivnost", options=["Sjedilački", "Lagano", "Umjereno", "Vrlo aktivno"])
-        if st.form_submit_button("Spremi Profil"):
-            save_data(pd.DataFrame([{"Ime": ime, "Spol": spol, "Tezina": tezina, "Visina": visina, "Godine": godine, "Aktivnost": aktivnost, "Cilj": cilj}]), PROFILE_FILE)
-            st.success("Profil spremljen!")
-
-with t_fast:
-    st.header("Intermittent Fasting")
-    
-    st.write("Prati svoje razdoblje posta.")
-    start_date = st.date_input("Datum početka", datetime.date.today())
-    start_time = st.time_input("Vrijeme zadnjeg obroka", datetime.time(20, 0))
-    
-    if st.button("Završi post i spremi"):
-        now = datetime.datetime.now()
-        start_dt = datetime.datetime.combine(start_date, start_time)
-        diff = now - start_dt
-        hours = round(diff.total_seconds() / 3600, 1)
+            godine = st.number_input("Godine", min_value=10, max_value=100, value=int(init["Godine"]) if init is not None else 30)
+        with col2:
+            tezina = st.number_input("Težina (kg)", min_value=30.0, max_value=200.0, value=float(init["Tezina"]) if init is not None else 80.0)
+            visina = st.number_input("Visina (cm)", min_value=100.0, max_value=250.0, value=float(init["Visina"]) if init is not None else 180.0)
+            cilj = st.selectbox("Cilj", ["Gubitak masti", "Održavanje", "Dobivanje mišića"], index=0 if init is None else ["Gubitak masti", "Održavanje", "Dobivanje mišića"].index(init["Cilj"]))
         
-        f_df = load_data(FAST_FILE, ["Datum", "Sati"])
-        new_f = pd.DataFrame([{"Datum": now.strftime("%Y-%m-%d"), "Sati": hours}])
-        save_data(pd.concat([f_df, new_f]), FAST_FILE)
-        st.success(f"Bravo! Postili ste {hours} sati.")
+        aktivnost = st.select_slider("Razina aktivnosti", options=["Sjedilački", "Lagano", "Umjereno", "Vrlo aktivno"], value=init["Aktivnost"] if init is not None else "Sjedilački")
+        
+        submit = st.form_submit_button("Spremi Profil")
+        
+        if submit:
+            # Spremanje profila
+            new_profile = pd.DataFrame([{"Ime": ime, "Spol": spol, "Tezina": tezina, "Visina": visina, "Godine": godine, "Aktivnost": aktivnost, "Cilj": cilj}])
+            save_data(new_profile, PROFILE_FILE)
+            
+            # Automatsko spremanje kilaže u povijest (za grafikon)
+            w_df = load_data(WEIGHT_FILE, ["Datum", "Tezina"])
+            current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+            # Dodaj novi zapis
+            new_weight = pd.DataFrame([{"Datum": current_date, "Tezina": tezina}])
+            # Spoji i makni duplikate za isti dan (zadrži zadnji unos)
+            w_df = pd.concat([w_df, new_weight]).drop_duplicates(subset="Datum", keep="last")
+            save_data(w_df, WEIGHT_FILE)
+            
+            st.success("Profil spremljen! Kilaža zabilježena u grafikonu.")
+            st.rerun()
 
+# ---------------- TAB 2: POST (FASTING) ----------------
+with t_fast:
+    st.header("Praćenje Posta (Intermittent Fasting)")
+    st.info("Ovdje bilježiš završene cikluse posta.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        start_date = st.date_input("Datum početka posta", datetime.date.today())
+    with col2:
+        start_time = st.time_input("Vrijeme zadnjeg obroka", datetime.time(20, 0))
+        
+    end_time_now = st.button("🏁 Završi post sada (Trenutno vrijeme)")
+    
+    if end_time_now:
+        start_dt = datetime.datetime.combine(start_date, start_time)
+        end_dt = datetime.datetime.now()
+        
+        if end_dt > start_dt:
+            diff = end_dt - start_dt
+            hours = round(diff.total_seconds() / 3600, 2)
+            
+            f_df = load_data(FAST_FILE, ["Datum", "Sati"])
+            new_fast = pd.DataFrame([{"Datum": end_dt.strftime("%Y-%m-%d"), "Sati": hours}])
+            save_data(pd.concat([f_df, new_fast]), FAST_FILE)
+            
+            st.balloons()
+            st.success(f"Uspješno spremljen post od {hours} sati!")
+        else:
+            st.error("Vrijeme završetka mora biti nakon vremena početka.")
+
+# ---------------- TAB 3: MENU ----------------
 with t_menu:
     p_df = load_data(PROFILE_FILE, [])
-    if p_df.empty: 
-        st.warning("Prvo ispunite profil u prvom tabu.")
+    
+    if p_df.empty:
+        st.warning("⚠️ Molimo prvo ispunite profil u prvom tabu.")
     else:
-        u = p_df.iloc[0]
-        m = calculate_macros(u["Spol"], u["Tezina"], u["Visina"], u["Godine"], u["Aktivnost"], u["Cilj"])
+        # Učitaj podatke i izračunaj ciljeve
+        user = p_df.iloc[0]
+        macros = calculate_macros(user["Spol"], user["Tezina"], user["Visina"], user["Godine"], user["Aktivnost"], user["Cilj"])
         
-        st.subheader(f"Dnevni cilj: {m['kcal']} kcal")
+        st.subheader("🎯 Tvoji dnevni makro ciljevi")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Kalorije", f"{macros['kcal']}")
+        c2.metric("Masti (70%)", f"{macros['fat']}g")
+        c3.metric("Proteini (25%)", f"{macros['prot']}g")
+        c4.metric("Ugljikohidrati (5%)", f"{macros['carb']}g")
         
-        if st.button("🪄 GENERIRAJ NOVI DNEVNI PLAN"):
-            # Logika odabira...
+        st.divider()
+        
+        btn_gen = st.button("🪄 GENERIRAJ OPTIMALNI MENU", use_container_width=True)
+        
+        if btn_gen:
+            # Filtriraj recepte po tipu
             b_list = [x for x in KETO_MEALS if x['type'] == "Breakfast"]
             l_list = [x for x in KETO_MEALS if x['type'] == "Lunch"]
             d_list = [x for x in KETO_MEALS if x['type'] == "Dinner"]
             s_list = [x for x in KETO_MEALS if x['type'] == "Snack"]
             
-            # Nasumičan odabir za primjer
-            plan = [random.choice(b_list), random.choice(l_list), random.choice(d_list), random.choice(s_list)]
+            # ALGORITAM: Vrti 1000 nasumičnih kombinacija i traži onu najbližu ciljanim kalorijama
+            best_combo = None
+            min_diff = float('inf')
             
-            for item in plan:
-                with st.expander(f"{item['type']}: {item['name']} ({item['kcal']} kcal)"):
-                    st.write(f"**Sastojci:** {', '.join(item['ingredients'])}")
-                    st.info(f"**Priprema:** {item['preparation']}")
+            for _ in range(1000):
+                # Odaberi po jedno jelo iz svake kategorije
+                b = random.choice(b_list)
+                l = random.choice(l_list)
+                d = random.choice(d_list)
+                s = random.choice(s_list)
+                
+                total_k = b['kcal'] + l['kcal'] + d['kcal'] + s['kcal']
+                diff = abs(total_k - macros['kcal'])
+                
+                if diff < min_diff:
+                    min_diff = diff
+                    best_combo = [b, l, d, s]
+            
+            # Prikaz najboljeg menija
+            st.success(f"Generiran meni! Odstupanje od cilja: samo {int(min_diff)} kcal.")
+            
+            meals = best_combo
+            labels = ["🌅 Doručak", "☀️ Ručak", "🌙 Večera", "🍿 Snack"]
+            
+            for i, meal in enumerate(meals):
+                with st.expander(f"{labels[i]}: {meal['name']} ({meal['kcal']} kcal)", expanded=True):
+                    st.markdown(f"**Sastojci:** {', '.join(meal['ingredients'])}")
+                    st.info(f"**Priprema:** {meal['preparation']}")
+                    st.caption(f"Masti: {meal['fat']}g | Proteini: {meal['prot']}g | UH: {meal['carb']}g")
 
+            # --- FIKSNA PIĆA (ZAHTJEV KORISNIKA) ---
+            st.warning("☕ **Napomena za pića:** Uz ove obroke dozvoljeni su voda, nezaslađeni čaj i crna kava u neograničenim količinama.")
+            
+            # --- DETALJNA STATISTIKA (DELTA) ---
+            st.divider()
+            st.subheader("📊 Analiza generiranog dana")
+            
+            tk = sum(m['kcal'] for m in meals)
+            tf = sum(m['fat'] for m in meals)
+            tp = sum(m['prot'] for m in meals)
+            tc = sum(m['carb'] for m in meals)
+            
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("Ukupno Kcal", f"{tk}", delta=f"{tk - macros['kcal']}", delta_color="inverse")
+            k2.metric("Masti", f"{tf}g", delta=f"{tf - macros['fat']}")
+            k3.metric("Proteini", f"{tp}g", delta=f"{tp - macros['prot']}")
+            k4.metric("UH", f"{tc}g", delta=f"{tc - macros['carb']}", delta_color="inverse")
+
+# ---------------- TAB 4: NAPREDAK ----------------
 with t_prog:
-    st.header("Tvoj Napredak")
-    f_df = load_data(FAST_FILE, ["Datum", "Sati"])
-    if not f_df.empty:
-        fig = px.area(f_df, x="Datum", y="Sati", title="Sati posta kroz vrijeme", color_discrete_sequence=['#2ca02c'])
-        st.plotly_chart(fig, use_container_width=True)
+    st.header("📈 Tvoj Napredak")
+    
+    # 1. GRAFIKON KILAŽE
+    st.subheader("1. Promjena tjelesne težine")
+    w_df = load_data(WEIGHT_FILE, ["Datum", "Tezina"])
+    
+    if not w_df.empty and len(w_df) > 0:
+        # Sortiraj po datumu
+        w_df = w_df.sort_values("Datum")
+        fig_weight = px.line(w_df, x="Datum", y="Tezina", markers=True, title="Kilaža kroz vrijeme (kg)")
+        fig_weight.update_traces(line_color="#2ECC71", line_width=3)
+        st.plotly_chart(fig_weight, use_container_width=True)
     else:
-        st.info("Podaci će se pojaviti ovdje nakon što prvi put spremite post.")
+        st.info("Grafikon težine će se prikazati nakon što spremite profil barem jednom.")
+
+    st.divider()
+
+    # 2. GRAFIKON POSTA
+    st.subheader("2. Povijest posta")
+    f_df = load_data(FAST_FILE, ["Datum", "Sati"])
+    
+    if not f_df.empty and len(f_df) > 0:
+        f_df = f_df.sort_values("Datum")
+        fig_fast = px.bar(f_df, x="Datum", y="Sati", title="Trajanje posta po danima (h)")
+        fig_fast.update_traces(marker_color="#3498DB")
+        # Dodaj liniju cilja (npr. 16h)
+        fig_fast.add_hline(y=16, line_dash="dot", annotation_text="Cilj (16h)", annotation_position="bottom right")
+        st.plotly_chart(fig_fast, use_container_width=True)
+    else:
+        st.info("Grafikon posta će se prikazati nakon što zabilježite prvi post u tabu 'Post'.")
