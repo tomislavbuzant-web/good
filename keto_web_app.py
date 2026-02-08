@@ -62,7 +62,6 @@ USDA_KETO = {
 st.sidebar.title("🥑 Keto Pro Profil")
 profile_pic = st.sidebar.file_uploader("Učitaj fotografiju", type=['jpg', 'png'])
 
-# Popravljena linija 66 i 67
 if profile_pic is not None:
     st.sidebar.image(profile_pic, width=120)
 
@@ -88,4 +87,95 @@ with tab_fast:
     with c2:
         if st.button("🍽️ Završi post i zapiši"):
             if st.session_state.start_time:
-                duration = (datetime.datetime.now() - st.session_state.start_time).total_seconds() /
+                # Popravljen izračun trajanja
+                duration = (datetime.datetime.now() - st.session_state.start_time).total_seconds() / 3600
+                new_entry = pd.DataFrame({
+                    "Date": [datetime.date.today().strftime('%Y-%m-%d')], 
+                    "Hours": [round(duration, 2)]
+                })
+                history = load_data(FAST_FILE, ["Date", "Hours"])
+                save_data(pd.concat([history, new_entry], ignore_index=True), FAST_FILE)
+                st.session_state.start_time = None
+                st.success(f"Zapisano: {duration:.2f} sati posta!")
+                st.rerun()
+
+    if st.session_state.start_time:
+        elapsed = (datetime.datetime.now() - st.session_state.start_time).total_seconds() / 3600
+        st.metric("Protekao vrijeme", f"{elapsed:.2f} h")
+        st.progress(min(elapsed/16, 1.0))
+
+# --- TAB 2: MACRO CALCULATOR ---
+with tab_macro:
+    st.header("Personalizirani Keto Kalkulator")
+    mc1, mc2 = st.columns(2)
+    with mc1:
+        age = st.number_input("Godine", 18, 100, 35)
+        weight_kg = st.number_input("Trenutna težina (kg)", 40.0, 250.0, 90.0)
+    with mc2:
+        height_cm = st.number_input("Visina (cm)", 100, 250, 180)
+        activity_lvl = st.selectbox("Razina aktivnosti", ["Sjedilački", "Lagana", "Umjerena", "Visoka"])
+
+    if st.button("Izračunaj dnevne ciljeve"):
+        bmr = (10 * weight_kg) + (6.25 * height_cm) - (5 * age) + 5
+        act_map = {"Sjedilački": 1.2, "Lagana": 1.375, "Umjerena": 1.55, "Visoka": 1.725}
+        tdee = bmr * act_map[activity_lvl]
+        
+        st.session_state.f_goal = (tdee * 0.70) / 9
+        st.session_state.p_goal = (tdee * 0.25) / 4
+        st.session_state.c_goal = (tdee * 0.05) / 4
+        
+        st.success(f"Dnevni cilj: {int(tdee)} kalorija")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Masti (g)", f"{int(st.session_state.f_goal)}g")
+        m2.metric("Proteini (g)", f"{int(st.session_state.p_goal)}g")
+        m3.metric("Neto UH (g)", f"{int(st.session_state.c_goal)}g")
+
+# --- TAB 3: FRIŽIDER & RECEPTI ---
+with tab_fridge:
+    st.header("Pametni Frižider")
+    st.subheader("Što imate u kuhinji?")
+    items_in_fridge = st.multiselect("Odaberite namirnice:", list(USDA_KETO.keys()))
+    
+    if items_in_fridge:
+        st.divider()
+        if 'p_goal' in st.session_state:
+            prim_food = items_in_fridge[0]
+            p_per_100 = USDA_KETO[prim_food]['prot']
+            if p_per_100 > 0:
+                needed_grams = int((st.session_state.p_goal / p_per_100) * 100)
+                st.info(f"Da pogodite protein cilj koristeći **{prim_food}**, trebate pojesti **{needed_grams}g**.")
+                
+                f_in_food = (needed_grams / 100) * USDA_KETO[prim_food]['fat']
+                extra_fat = max(0, int((st.session_state.f_goal - f_in_food) / 12))
+                st.write(f"➡️ Dodajte **{extra_fat} žlica** masnoće (maslac/ulje) za savršen keto omjer.")
+        else:
+            st.warning("Prvo izračunajte makrose u Tabu 2!")
+
+        search = "+".join(items_in_fridge).replace(" ", "+")
+        st.subheader("🔍 Preporučeni Recepti")
+        st.markdown(f"📖 [DietDoctor Recepti](https://www.dietdoctor.com/low-carb/keto/recipes/search?s={search})")
+        st.markdown(f"🎥 [Headbanger's Kitchen (Video)](https://www.youtube.com/@HeadbangersKitchen/search?query={search})")
+
+# --- TAB 4: PROFIL & IZVOZ ---
+with tab_profile:
+    st.header(f"Podaci: {user_full_name}")
+    
+    weight_hist = load_data(WEIGHT_FILE, ["Date", "Weight_kg"])
+    new_w = st.number_input("Unesi novu težinu (kg)", 30.0, 250.0, 90.0)
+    if st.button("Spremi težinu"):
+        w_entry = pd.DataFrame({"Date": [datetime.date.today().strftime('%Y-%m-%d')], "Weight_kg": [new_w]})
+        save_data(pd.concat([weight_hist, w_entry], ignore_index=True), WEIGHT_FILE)
+        st.rerun()
+
+    if not weight_hist.empty:
+        st.subheader("Trend težine")
+        w_plot = weight_hist.copy()
+        w_plot['Date'] = pd.to_datetime(w_plot['Date'])
+        st.line_chart(w_plot.set_index('Date'))
+
+    st.divider()
+    if st.button("Pripremi podatke za izvoz"):
+        f_hist = load_data(FAST_FILE, ["Date", "Hours"])
+        if not f_hist.empty:
+            f_hist['Date'] = f_hist['Date'].apply(format_euro_date)
+            st.download_button("📥 Preuzmi Fasting log (CSV)", f_hist.to_csv(index=False), "post_izvoz.csv")
