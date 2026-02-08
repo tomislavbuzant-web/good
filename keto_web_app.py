@@ -322,57 +322,51 @@ with t_fast:
         st.subheader("📋 Povijest postova")
         st.dataframe(f_df.iloc[::-1], use_container_width=True, hide_index=True)
 
-# ---------------- TAB 3: GENERATOR JELOVNIKA (FIXED) ----------------
+# ---------------- TAB 3: GENERATOR JELOVNIKA (ORIGINALNI STIL) ----------------
 with t_menu:
     st.header("🥗 Keto Menu Generator")
     
-    # Tvoji parametri (zadržani)
+    # Zadržavamo tvoje nove parametre jer su korisni
     col_kat1, col_kat2 = st.columns(2)
     with col_kat1:
         cilj = st.selectbox("Cilj:", ["Gubitak masnoće", "Održavanje", "Dobivanje mišića"])
     with col_kat2:
         broj_obroka = st.slider("Broj obroka dnevno:", 1, 4, 2)
 
-    # Gumb za generiranje
     if st.button("✨ Generiraj personalizirani meni", use_container_width=True):
         with st.spinner("Generiram recepte prema tvojim makrosima..."):
-            # Ovdje pozivaš svoju originalnu funkciju (npr. dohvati_ai_meni)
-            # Osiguraj da tvoja funkcija vraća podatke, npr: 
-            # rezultati = tvoja_funkcija_za_ai(cilj, broj_obroka)
-            
-            # Za demo/popravak greške koristimo placeholder da kod ne pukne:
-            rezultati = {
-                "Meni 1 (850 kcal | P: 45g, U: 8g, M: 65g)": [
-                    {"n": "Juneći odrezak", "g": "250g", "m": "P:62g, U:0g, M:48g"},
-                    {"n": "Brokula na maslacu", "g": "150g", "m": "P:4g, U:5g, M:12g"}
-                ],
-                "Meni 2 (720 kcal | P: 38g, U: 6g, M: 55g)": [
-                    {"n": "File lososa", "g": "200g", "m": "P:40g, U:0g, M:26g"},
-                    {"n": "Šparoge", "g": "100g", "m": "P:2g, U:4g, M:8g"}
-                ]
-            }
-            st.session_state.last_menu = rezultati
-            st.rerun()
+            # Poziv tvoje funkcije (osiguraj da tvoja funkcija vraća listu/dict)
+            # Ovdje simuliramo tvoj stari prikaz:
+            generated_content = [
+                {
+                    "naslov": "Meni 1 (850 kcal | P: 45g, U: 8g, M: 65g)",
+                    "hrana": [
+                        {"n": "Juneći odrezak", "g": "250g", "m": "P:62g, U:0g, M:48g"},
+                        {"n": "Brokula na maslacu", "g": "150g", "m": "P:4g, U:5g, M:12g"}
+                    ]
+                },
+                {
+                    "naslov": "Meni 2 (720 kcal | P: 38g, U: 6g, M: 55g)",
+                    "hrana": [
+                        {"n": "File lososa", "g": "200g", "m": "P:40g, U:0g, M:26g"},
+                        {"n": "Šparoge", "g": "100g", "m": "P:2g, U:4g, M:8g"}
+                    ]
+                }
+            ]
+            st.session_state.old_menu = generated_content
 
-    # PRIKAZ - Vraćeno na tvoj stil, ali sa zatvorenim menijima
-    if "last_menu" in st.session_state:
-        st.subheader("Tvoji personalizirani obroci:")
-        
-        for naslov, namirnice in st.session_state.last_menu.items():
-            # expander je po defaultu ZATVOREN (expanded=False)
-            with st.expander(f"🍴 {naslov}", expanded=False):
-                st.markdown("---")
-                for stavka in namirnice:
-                    c1, c2, c3 = st.columns([2, 1, 2])
-                    with c1:
-                        st.write(f"**{stavka['n']}**") # Naziv
-                    with c2:
-                        st.write(f"{stavka['g']}")    # Gramaža
-                    with c3:
-                        st.write(f"*{stavka['m']}*")   # Makrosi namirnice
-                st.markdown("---")
-                if st.button(f"Odaberi ovaj obrok", key=f"btn_{naslov}"):
-                    st.success(f"Obrok '{naslov}' je zabilježen!")
+    # PRIKAZ - tvoj stari, otvoreni stil
+    if "old_menu" in st.session_state:
+        for obrok in st.session_state.old_menu:
+            st.markdown(f"### 🍴 {obrok['naslov']}")
+            
+            # Prikaz namirnica s makrosima i gramažom u čistom tekstu
+            for stavka in obrok['hrana']:
+                st.write(f"✅ **{stavka['n']}** ({stavka['g']}) — *{stavka['m']}*")
+            
+            st.divider()
+
+    # Ovdje možeš dodati spremanje ako želiš
 
 # ---------------- TAB 4: NAPREDAK ----------------
 with t_prog:
