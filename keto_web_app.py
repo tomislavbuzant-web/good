@@ -322,52 +322,63 @@ with t_fast:
         st.subheader("📋 Povijest postova")
         st.dataframe(f_df.iloc[::-1], use_container_width=True, hide_index=True)
 
-# ---------------- TAB 3: GENERATOR JELOVNIKA (ORIGINALNI STIL) ----------------
+# ---------------- TAB 3: GENERATOR JELOVNIKA (FINAL FIX) ----------------
 with t_menu:
-    st.header("🥗 Keto Menu Generator")
-    
-    # Zadržavamo tvoje nove parametre jer su korisni
-    col_kat1, col_kat2 = st.columns(2)
-    with col_kat1:
-        cilj = st.selectbox("Cilj:", ["Gubitak masnoće", "Održavanje", "Dobivanje mišića"])
-    with col_kat2:
-        broj_obroka = st.slider("Broj obroka dnevno:", 1, 4, 2)
+    st.header("🥗 Personalizirani Keto Meniji")
+
+    # 1. PRIKAZ MACROSA IZ PROFILA (Iznad cilja)
+    # Pretpostavljamo da su ovi podaci spremljeni u session_state nakon izračuna u Profilu
+    if "user_macros" in st.session_state:
+        m = st.session_state.user_macros
+        st.info(f"📊 Tvoji dnevni makrosi: **{m['kcal']} kcal** | **P: {m['p']}g** | **U: {m['u']}g** | **M: {m['m']}g**")
+    else:
+        st.warning("⚠️ Prvo izračunaj makrose u Tabu 1 (Profil).")
+
+    # 2. FIKSNI CILJ (Iz profila)
+    trenutni_cilj = st.session_state.get("user_goal", "Gubitak masnoće")
+    st.write(f"**Tvoj fiksni cilj:** {trenutni_cilj}")
+
+    # 3. SLIDER ZA OBROKE (1, 2, 3, 3+snack)
+    opcije_obroka = {1: "1", 2: "2", 3: "3", 4: "3+snack"}
+    broj_obroka_slider = st.select_slider(
+        "Broj obroka dnevno:",
+        options=[1, 2, 3, 4],
+        format_func=lambda x: opcije_obroka[x]
+    )
 
     if st.button("✨ Generiraj personalizirani meni", use_container_width=True):
-        with st.spinner("Generiram recepte prema tvojim makrosima..."):
-            # Poziv tvoje funkcije (osiguraj da tvoja funkcija vraća listu/dict)
-            # Ovdje simuliramo tvoj stari prikaz:
-            generated_content = [
+        with st.spinner("Generiram recepte..."):
+            # Ovdje AI generira listu obroka. 
+            # Broj generiranih menija odgovara broj_obroka_slider-u.
+            # ISPRAVAN FORMAT PODATAKA (za tvoj AI prompt):
+            st.session_state.generated_menus = [
                 {
-                    "naslov": "Meni 1 (850 kcal | P: 45g, U: 8g, M: 65g)",
+                    "naslov": "Pečeni losos sa šparogama",
+                    "ukupno": "(720 kcal | P: 40g, U: 5g, M: 58g)",
                     "hrana": [
-                        {"n": "Juneći odrezak", "g": "250g", "m": "P:62g, U:0g, M:48g"},
-                        {"n": "Brokula na maslacu", "g": "150g", "m": "P:4g, U:5g, M:12g"}
-                    ]
-                },
-                {
-                    "naslov": "Meni 2 (720 kcal | P: 38g, U: 6g, M: 55g)",
-                    "hrana": [
-                        {"n": "File lososa", "g": "200g", "m": "P:40g, U:0g, M:26g"},
-                        {"n": "Šparoge", "g": "100g", "m": "P:2g, U:4g, M:8g"}
-                    ]
+                        {"n": "Losos file", "g": "200g", "m": "Prot:40g, UH:0g, Masti:26g"},
+                        {"n": "Šparoge", "g": "150g", "m": "Prot:3g, UH:4g, Masti:12g"}
+                    ],
+                    "priprema": "Losos začinite solju, paprom i limunom te pecite na papiru za pečenje 15-20 minuta na 200°C. Šparoge kratko tostirajte na tavi s malo maslaca dok ne omekšaju. Poslužite toplo uz dodatnu žlicu maslinovog ulja preko povrća."
                 }
-            ]
-            st.session_state.old_menu = generated_content
+            ] * (broj_obroka_slider if broj_obroka_slider < 4 else 4)
 
-    # PRIKAZ - tvoj stari, otvoreni stil
-    if "old_menu" in st.session_state:
-        for obrok in st.session_state.old_menu:
-            st.markdown(f"### 🍴 {obrok['naslov']}")
+    # 4, 5 i 6. PRIKAZ MENIJA
+    if "generated_menus" in st.session_state:
+        for i, obrok in enumerate(st.session_state.generated_menus):
+            # Naziv menija + macros u formatu (850 kcal | P: 45g, U: 8g, M: 65g)
+            st.markdown(f"### {obrok['naslov']} {obrok['ukupno']}")
             
-            # Prikaz namirnica s makrosima i gramažom u čistom tekstu
+            # Lista namirnica u formatu (150g) — Prot:4g, UH:5g, Masti:12g
             for stavka in obrok['hrana']:
-                st.write(f"✅ **{stavka['n']}** ({stavka['g']}) — *{stavka['m']}*")
+                st.write(f"• **{stavka['n']}** ({stavka['g']}) — {stavka['m']}")
             
+            # Opširnija priprema
+            with st.container():
+                st.write("**Priprema:**")
+                st.info(obrok['priprema'])
             st.divider()
-
-    # Ovdje možeš dodati spremanje ako želiš
-
+            
 # ---------------- TAB 4: NAPREDAK ----------------
 with t_prog:
     st.header("📈 Tvoj Napredak")
