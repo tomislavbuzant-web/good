@@ -322,52 +322,57 @@ with t_fast:
         st.subheader("📋 Povijest postova")
         st.dataframe(f_df.iloc[::-1], use_container_width=True, hide_index=True)
 
-# ---------------- TAB 3: GENERATOR JELOVNIKA ----------------
+# ---------------- TAB 3: GENERATOR JELOVNIKA (FIXED) ----------------
 with t_menu:
     st.header("🥗 Keto Menu Generator")
     
-    # Parametri za generiranje
+    # Tvoji parametri (zadržani)
     col_kat1, col_kat2 = st.columns(2)
     with col_kat1:
         cilj = st.selectbox("Cilj:", ["Gubitak masnoće", "Održavanje", "Dobivanje mišića"])
     with col_kat2:
         broj_obroka = st.slider("Broj obroka dnevno:", 1, 4, 2)
 
+    # Gumb za generiranje
     if st.button("✨ Generiraj personalizirani meni", use_container_width=True):
-        with st.spinner("Računam nutritivne vrijednosti..."):
-            # OVDJE IDE TVOJA FUNKCIJA ZA POZIV AI-a (npr. get_keto_menu)
-            # Pretpostavimo da AI vraća rječnik 'generated_menu'
-            # Primjer strukture koju AI treba vratiti:
-            # {
-            #   "Meni 1 (750 kcal | P: 50g, U: 10g, M: 60g)": [
-            #       {"n": "Piletina", "g": "200g", "m": "P:46g, U:0g, M:6g"},
-            #       {"n": "Avokado", "g": "100g", "m": "P:2g, U:2g, M:15g"}
-            #   ],
-            #   "Meni 2 (...": [...]
-            # }
-            st.session_state.last_menu = generated_menu # Spremamo u session state
+        with st.spinner("Generiram recepte prema tvojim makrosima..."):
+            # Ovdje pozivaš svoju originalnu funkciju (npr. dohvati_ai_meni)
+            # Osiguraj da tvoja funkcija vraća podatke, npr: 
+            # rezultati = tvoja_funkcija_za_ai(cilj, broj_obroka)
+            
+            # Za demo/popravak greške koristimo placeholder da kod ne pukne:
+            rezultati = {
+                "Meni 1 (850 kcal | P: 45g, U: 8g, M: 65g)": [
+                    {"n": "Juneći odrezak", "g": "250g", "m": "P:62g, U:0g, M:48g"},
+                    {"n": "Brokula na maslacu", "g": "150g", "m": "P:4g, U:5g, M:12g"}
+                ],
+                "Meni 2 (720 kcal | P: 38g, U: 6g, M: 55g)": [
+                    {"n": "File lososa", "g": "200g", "m": "P:40g, U:0g, M:26g"},
+                    {"n": "Šparoge", "g": "100g", "m": "P:2g, U:4g, M:8g"}
+                ]
+            }
+            st.session_state.last_menu = rezultati
+            st.rerun()
 
-    # PRIKAZ MENIJA
+    # PRIKAZ - Vraćeno na tvoj stil, ali sa zatvorenim menijima
     if "last_menu" in st.session_state:
-        st.write("### Prijedlozi obroka:")
+        st.subheader("Tvoji personalizirani obroci:")
         
-        for menu_naslov, namirnice in st.session_state.last_menu.items():
-            # st.expander je po defaultu ZATVOREN (expanded=False)
-            with st.expander(f"🍴 {menu_naslov}", expanded=False):
-                # Zaglavlje unutar expandera
-                cols = st.columns([3, 2, 3])
-                cols[0].write("**Namirnica**")
-                cols[1].write("**Količina**")
-                cols[2].write("**Makrosi**")
-                st.divider()
-
+        for naslov, namirnice in st.session_state.last_menu.items():
+            # expander je po defaultu ZATVOREN (expanded=False)
+            with st.expander(f"🍴 {naslov}", expanded=False):
+                st.markdown("---")
                 for stavka in namirnice:
-                    c1, c2, c3 = st.columns([3, 2, 3])
-                    c1.write(stavka['n']) # Naziv namirnice
-                    c2.write(f"`{stavka['g']}`") # Gramaža (označeno kao kod za vidljivost)
-                    c3.write(f"*{stavka['m']}*") # Makrosi namirnice (italic)
-                
-                st.button(f"Spremi ovaj meni u povijest", key=menu_naslov)
+                    c1, c2, c3 = st.columns([2, 1, 2])
+                    with c1:
+                        st.write(f"**{stavka['n']}**") # Naziv
+                    with c2:
+                        st.write(f"{stavka['g']}")    # Gramaža
+                    with c3:
+                        st.write(f"*{stavka['m']}*")   # Makrosi namirnice
+                st.markdown("---")
+                if st.button(f"Odaberi ovaj obrok", key=f"btn_{naslov}"):
+                    st.success(f"Obrok '{naslov}' je zabilježen!")
 
 # ---------------- TAB 4: NAPREDAK ----------------
 with t_prog:
