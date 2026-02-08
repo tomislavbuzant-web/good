@@ -197,35 +197,69 @@ with t_prof:
             st.success("Profil spremljen! Kilaža zabilježena u grafikonu.")
             st.rerun()
 
-# ---------------- TAB 2: POST (FASTING) ----------------
+# ---------------- TAB 2: POST (ŠTOPERICA MOD) ----------------
 with t_fast:
-    st.header("Praćenje Posta (Intermittent Fasting)")
-    st.info("Ovdje bilježiš završene cikluse posta.")
+    st.header("🕒 Intermittent Fasting Tajmer")
     
+    # Učitavanje povijesti
+    f_df = load_data(FAST_FILE, ["Početak", "Kraj", "Trajanje_h"])
+
+    # Provjera stanja: Jesmo li usred posta?
+    # Koristimo st.session_state da aplikacija "pamti" klikove
+    if "is_fasting" not in st.session_state:
+        st.session_state.is_fasting = False
+
     col1, col2 = st.columns(2)
+
     with col1:
-        start_date = st.date_input("Datum početka posta", datetime.date.today())
-    with col2:
-        start_time = st.time_input("Vrijeme zadnjeg obroka", datetime.time(20, 0))
-        
-    end_time_now = st.button("🏁 Završi post sada (Trenutno vrijeme)")
-    
-    if end_time_now:
-        start_dt = datetime.datetime.combine(start_date, start_time)
-        end_dt = datetime.datetime.now()
-        
-        if end_dt > start_dt:
-            diff = end_dt - start_dt
-            hours = round(diff.total_seconds() / 3600, 2)
-            
-            f_df = load_data(FAST_FILE, ["Datum", "Sati"])
-            new_fast = pd.DataFrame([{"Datum": end_dt.strftime("%Y-%m-%d"), "Sati": hours}])
-            save_data(pd.concat([f_df, new_fast]), FAST_FILE)
-            
-            st.balloons()
-            st.success(f"Uspješno spremljen post od {hours} sati!")
+        if not st.session_state.is_fasting:
+            if st.button("🚀 KRENI S POSTOM", use_container_width=True):
+                st.session_state.start_time = datetime.datetime.now()
+                st.session_state.is_fasting = True
+                st.rerun()
         else:
-            st.error("Vrijeme završetka mora biti nakon vremena početka.")
+            if st.button("🍽️ ZAVRŠI POST / JEDI", use_container_width=True):
+                end_time = datetime.datetime.now()
+                start_time = st.session_state.start_time
+                
+                # Izračun trajanja
+                duration = end_time - start_time
+                hours = round(duration.total_seconds() / 3600, 2)
+                
+                # Spremanje
+                new_fast = pd.DataFrame([{
+                    "Početak": start_time.strftime("%Y-%m-%d %H:%M"),
+                    "Kraj": end_time.strftime("%Y-%m-%d %H:%M"),
+                    "Trajanje_h": hours
+                }])
+                f_df = pd.concat([f_df, new_fast], ignore_index=True)
+                save_data(f_df, FAST_FILE)
+                
+                st.session_state.is_fasting = False
+                st.success(f"Post završen! Trajanje: {hours} h")
+                st.rerun()
+
+    with col2:
+        if st.session_state.is_fasting:
+            # Prikaz trenutnog stanja
+            now = datetime.datetime.now()
+            diff = now - st.session_state.start_time
+            sati = diff.seconds // 3600
+            minute = (diff.seconds // 60) % 60
+            
+            st.metric("Trenutno postiš", f"{sati}h {minute}m")
+            st.write(f"Zadnji obrok: **{st.session_state.start_time.strftime('%H:%M')}**")
+        else:
+            st.info("Status: Trenutno ne postiš. Klikni gumb lijevo kad završiš s jelom.")
+
+    # Prikaz povijesti posta
+    if not f_df.empty:
+        st.subheader("Povijest zadnjih postova")
+        st.dataframe(f_df.tail(5), use_container_width=True)
+        
+        # Mali grafikon zadnjih postova
+        fig_fast = px.bar(f_df.tail(10), x="Kraj", y="Trajanje_h", title="Zadnjih 10 postova (sati)", color_discrete_sequence=['#FF4B4B'])
+        st.plotly_chart(fig_fast, use_container_width=True)
 
 # ---------------- TAB 3: MENU ----------------
 with t_menu:
