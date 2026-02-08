@@ -6,7 +6,6 @@ import os
 # --- 1. KONFIGURACIJA I STILIZACIJA ---
 st.set_page_config(page_title="Keto Intelligence Pro", page_icon="🥑", layout="wide")
 
-# CSS ostaje isti, osiguravamo da nema grešaka u renderiranju
 st.markdown("""
     <style>
     .main { background-color: #f1f3f5; }
@@ -45,8 +44,7 @@ def format_euro_date(date_str):
     except:
         return date_str
 
-# --- 2. KETO BAZA PODATAKA (USDA-BASED) ---
-# Popravljeno: Svi navodnici su zatvoreni i nema grešaka u sintaksi
+# --- 2. KETO BAZA PODATAKA ---
 USDA_KETO = {
     "Ribeye Steak (100g)": {"fat": 22, "prot": 24, "carb": 0, "cal": 290},
     "Jaja (L veličina)": {"fat": 5, "prot": 6, "carb": 0.6, "cal": 70},
@@ -63,4 +61,31 @@ USDA_KETO = {
 # --- 3. SIDEBAR (PROFIL) ---
 st.sidebar.title("🥑 Keto Pro Profil")
 profile_pic = st.sidebar.file_uploader("Učitaj fotografiju", type=['jpg', 'png'])
-if profile
+
+# Popravljena linija 66 i 67
+if profile_pic is not None:
+    st.sidebar.image(profile_pic, width=120)
+
+user_full_name = st.sidebar.text_input("Ime i prezime", "Korisnik")
+st.sidebar.info("Sustav: Metrički (kg/cm) & Celzijus")
+
+# --- 4. GLAVNI TABOVI ---
+tab_fast, tab_macro, tab_fridge, tab_profile = st.tabs([
+    "🕒 Fasting Tracker", "🧮 Macro Calculator", "🥗 Frižider & Recepti", "👤 Profil & Izvoz"
+])
+
+# --- TAB 1: FASTING (POST) ---
+with tab_fast:
+    st.header("16/8 Fasting Clock")
+    if 'start_time' not in st.session_state:
+        st.session_state.start_time = None
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("🚀 Pokreni post sada"):
+            st.session_state.start_time = datetime.datetime.now()
+            st.rerun()
+    with c2:
+        if st.button("🍽️ Završi post i zapiši"):
+            if st.session_state.start_time:
+                duration = (datetime.datetime.now() - st.session_state.start_time).total_seconds() /
