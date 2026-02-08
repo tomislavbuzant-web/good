@@ -2,11 +2,12 @@ import streamlit as st
 import datetime
 import pandas as pd
 import os
+import requests
 
 # --- 1. CONFIG & DATA ---
 st.set_page_config(page_title="Keto Intelligence Pro", page_icon="🥑", layout="wide")
 
-# Data files
+# Datoteke za pohranu
 FAST_FILE = "fasting_history.csv"
 WEIGHT_FILE = "weight_history.csv"
 
@@ -21,7 +22,7 @@ def load_data(filename, columns):
             return pd.DataFrame(columns=columns)
     return pd.DataFrame(columns=columns)
 
-# --- 2. EXTENSIVE LIBRARIES ---
+# --- 2. LIBRARIES ---
 
 KETO_FOODS = {
     "Avocado": {"Fat": 15, "NetCarb": 2, "Protein": 2, "Unit": "100g"},
@@ -107,13 +108,49 @@ with tab1:
 
 # --- TAB 2: FOOD & RECIPES ---
 with tab2:
-    st.header("Keto Food Library")
-    search_food = st.multiselect("Select items in your fridge:", list(KETO_FOODS.keys()))
+    st.header("🔍 Globalna Baza Hrane (Open Food Facts)")
+    st.write("Pretraži nutritivne vrijednosti milijuna proizvoda (besplatno).")
+    
+    food_search = st.text_input("Unesi naziv namirnice (npr. 'Gouda', 'Dukatos', 'Walnuts'):")
+    
+    if food_search:
+        # Poziv besplatnom API-ju
+        url = f"https://world.openfoodfacts.org/cgi/search.pl?search_terms={food_search}&search_simple=1&action=process&json=1&page_size=5"
+        try:
+            response = requests.get(url)
+            data = response.json()
+            
+            if data.get('products'):
+                for product in data['products']:
+                    name = product.get('product_name', 'Nepoznato')
+                    brand = product.get('brands', 'Nepoznat brend')
+                    nutriments = product.get('nutriments', {})
+                    
+                    fat_100g = nutriments.get('fat_100g', 0)
+                    carbs_100g = nutriments.get('carbohydrates_100g', 0)
+                    protein_100g = nutriments.get('proteins_100g', 0)
+                    kcal_100g = nutriments.get('energy-kcal_100g', 0)
+
+                    with st.expander(f"📊 {name} - {brand}"):
+                        c1, c2, c3, c4 = st.columns(4)
+                        c1.metric("Kalorije", f"{kcal_100g} kcal")
+                        c2.metric("Masti", f"{fat_100g}g")
+                        c3.metric("Ugljikohidrati", f"{carbs_100g}g")
+                        c4.metric("Proteini", f"{protein_100g}g")
+                        st.caption("Nutritivne vrijednosti na 100g.")
+            else:
+                st.warning("Nije pronađen nijedan proizvod.")
+        except:
+            st.error("Greška u povezivanju s bazom.")
+
+    st.divider()
+    st.header("🍳 Moji Keto Recepti")
+    search_food = st.multiselect("Select items in your fridge (for recipe matching):", list(KETO_FOODS.keys()))
     
     shopping_list = []
 
     if search_food:
-        st.write("### 📊 Macros")
+        st.write("### 📊 Macros (Fridge Items)")
         for f in search_food:
             m = KETO_FOODS[f]
             st.caption(f"**{f}**: {m['Fat']}g Fat | {m['NetCarb']}g Carbs | {m['Protein']}g Protein")
