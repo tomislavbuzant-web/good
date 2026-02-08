@@ -13,17 +13,32 @@ PROFILE_FILE = "user_profile.csv"
 FAST_FILE = "fasting_history.csv"
 WEIGHT_FILE = "weight_history.csv"
 
-# Funkcije za rad s podacima
-def save_data(df, filename): df.to_csv(filename, index=False)
+# --- POPRAVLJENA FUNKCIJA ZA UČITAVANJE ---
 def load_data(filename, columns):
-    if os.path.exists(filename):
-        try: return pd.read_csv(filename)
-        except: return pd.DataFrame(columns=columns)
-    return pd.DataFrame(columns=columns)
+    """
+    Učitava CSV. Ako datoteka ne postoji, ili ako je oštećena/stara
+    pa joj fale stupci, vraća praznu tablicu s ispravnim stupcima.
+    """
+    if not os.path.exists(filename):
+        return pd.DataFrame(columns=columns)
+    
+    try:
+        df = pd.read_csv(filename)
+        # PROVJERA: Sadrži li datoteka sve potrebne stupce?
+        if not set(columns).issubset(df.columns):
+            # Ako fale stupci (npr. stara verzija), vrati praznu tablicu
+            return pd.DataFrame(columns=columns)
+        return df
+    except:
+        # U slučaju bilo kakve druge greške pri čitanju
+        return pd.DataFrame(columns=columns)
 
-# --- 2. KOMPLETNA BAZA KETO RECEPATA (20 po kategoriji = 80 ukupno) ---
+def save_data(df, filename): 
+    df.to_csv(filename, index=False)
+
+# --- 2. KOMPLETNA BAZA KETO RECEPATA (80 recepata) ---
 KETO_MEALS = [
-    # --- DORUČAK (20 opcija) ---
+    # --- DORUČAK ---
     {"name": "Jaja sa slaninom i avokadom", "type": "Breakfast", "kcal": 550, "fat": 45, "carb": 5, "prot": 25, "ingredients": ["3 jaja", "Slanina (50g)", "Avokado"], "preparation": "Ispecite slaninu i jaja."},
     {"name": "Keto Omelet sa špinatom", "type": "Breakfast", "kcal": 420, "fat": 34, "carb": 4, "prot": 24, "ingredients": ["3 jaja", "Špinat", "Feta sir"], "preparation": "Umutite i ispecite."},
     {"name": "Chia puding s kokosom", "type": "Breakfast", "kcal": 350, "fat": 28, "carb": 6, "prot": 12, "ingredients": ["Chia sjemenke", "Kokosovo mlijeko"], "preparation": "Hladiti preko noći."},
@@ -45,7 +60,7 @@ KETO_MEALS = [
     {"name": "Sardine s rikulom", "type": "Breakfast", "kcal": 360, "fat": 28, "carb": 1, "prot": 24, "ingredients": ["Sardine u ulju", "Rikula"], "preparation": "Ocijedite i poslužite."},
     {"name": "Halloumi sir na žaru", "type": "Breakfast", "kcal": 440, "fat": 35, "carb": 3, "prot": 26, "ingredients": ["Halloumi", "Maslinovo ulje"], "preparation": "Pecite dok ne porumeni."},
 
-    # --- RUČAK (20 opcija) ---
+    # --- RUČAK ---
     {"name": "Piletina Curry (Keto)", "type": "Lunch", "kcal": 610, "fat": 45, "carb": 7, "prot": 42, "ingredients": ["Piletina", "Kokosovo mlijeko", "Curry"], "preparation": "Dinstajte piletinu u umaku."},
     {"name": "Tikvice Bolognese", "type": "Lunch", "kcal": 580, "fat": 42, "carb": 9, "prot": 38, "ingredients": ["Mljeveno meso", "Tikvice", "Rajčica"], "preparation": "Umak preko rezanih tikvica."},
     {"name": "Odrezak s brokulom", "type": "Lunch", "kcal": 720, "fat": 55, "carb": 5, "prot": 48, "ingredients": ["Juneći odrezak", "Brokula", "Maslac"], "preparation": "Ispecite meso, brokulu na paru."},
@@ -67,7 +82,7 @@ KETO_MEALS = [
     {"name": "Janjetina i mladi luk", "type": "Lunch", "kcal": 750, "fat": 58, "carb": 2, "prot": 52, "ingredients": ["Janjetina", "Mladi luk"], "preparation": "Pečeno meso."},
     {"name": "Punjene paprike (sir/meso)", "type": "Lunch", "kcal": 530, "fat": 39, "carb": 7, "prot": 35, "ingredients": ["Paprike", "Mljeveno meso", "Jaje"], "preparation": "Pecite u pećnici."},
 
-    # --- VEČERA (20 opcija) ---
+    # --- VEČERA ---
     {"name": "Ribeye Steak", "type": "Dinner", "kcal": 780, "fat": 62, "carb": 0, "prot": 52, "ingredients": ["Steak", "Maslac"], "preparation": "Pecite 3 min sa svake strane."},
     {"name": "Karbonara od tikvica", "type": "Dinner", "kcal": 540, "fat": 42, "carb": 9, "prot": 26, "ingredients": ["Tikvice trake", "Panceta", "Žumanjak"], "preparation": "Pomiješajte vruće tikvice i jaje."},
     {"name": "Mozzarella i rajčica", "type": "Dinner", "kcal": 380, "fat": 30, "carb": 6, "prot": 22, "ingredients": ["Mozzarella", "Rajčica", "Bosiljak"], "preparation": "Caprese salata."},
@@ -89,7 +104,7 @@ KETO_MEALS = [
     {"name": "File oslića na maslacu", "type": "Dinner", "kcal": 430, "fat": 32, "carb": 2, "prot": 35, "ingredients": ["Oslić", "Maslac", "Peršin"], "preparation": "Pecite na tavi."},
     {"name": "Punjeni šampinjoni", "type": "Dinner", "kcal": 380, "fat": 30, "carb": 5, "prot": 20, "ingredients": ["Velike gljive", "Sir", "Slanina"], "preparation": "Napunite klobuke i pecite."},
 
-    # --- SNACK (20 opcija, bez posta) ---
+    # --- SNACK ---
     {"name": "Bademi i orasi", "type": "Snack", "kcal": 190, "fat": 17, "carb": 3, "prot": 6, "ingredients": ["Bademi", "Orasi"], "preparation": "Spremno."},
     {"name": "Masline i kockice sira", "type": "Snack", "kcal": 280, "fat": 26, "carb": 3, "prot": 10, "ingredients": ["Zelene masline", "Gauda"], "preparation": "Narežite."},
     {"name": "Kuhano jaje i majoneza", "type": "Snack", "kcal": 210, "fat": 18, "carb": 1, "prot": 7, "ingredients": ["Jaje", "Majoneza"], "preparation": "Skuhajte."},
@@ -295,6 +310,8 @@ with t_prog:
     
     # 1. GRAFIKON KILAŽE
     st.subheader("1. Promjena tjelesne težine")
+    
+    # Učitavanje s provjerom stupaca
     w_df = load_data(WEIGHT_FILE, ["Datum", "Tezina"])
     
     if not w_df.empty and len(w_df) > 0:
